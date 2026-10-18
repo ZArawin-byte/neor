@@ -12,6 +12,7 @@ import logging
 import re
 import time
 
+from groq import Groq  # the model provider: Groq-hosted LLMs over its chat completions API
 from pydantic import BaseModel, ValidationError
 
 from . import config
@@ -51,8 +52,6 @@ class AIFailure(Exception):
 def client():
     global _client
     if _client is None:
-        from groq import Groq
-
         _client = Groq(api_key=config.GROQ_API_KEY, timeout=config.AI_TIMEOUT_SECONDS, max_retries=1)
     return _client
 

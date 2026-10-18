@@ -14,6 +14,12 @@ APP=/opt/neor
 IP=$(curl -4 -s https://ifconfig.me)
 HOST="${HOST:-${IP//./-}.sslip.io}"
 
+# 1GB plans: a 1GB swap file so pip installs and photo uploads can't run the box out of memory
+if [ ! -f /swapfile ]; then
+  fallocate -l 1G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
 apt-get update -q
 DEBIAN_FRONTEND=noninteractive apt-get install -yq python3 python3-venv python3-pip ufw debian-keyring debian-archive-keyring apt-transport-https curl gnupg
 

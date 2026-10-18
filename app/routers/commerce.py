@@ -1,13 +1,17 @@
-"""Catalog, simulated Visa checkout and orders. Owner: core lane."""
+"""Catalog, simulated Visa-only checkout and orders. Owner: core lane.
+
+The flow judges see: a wardrobe gap -> an entry in the bag -> checkout with a Visa test card ->
+the piece arrives in the closet, and wearing it lowers its cost per wear.
+"""
 import datetime as dt
-import secrets
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Header, HTTPException
+from pydantic import BaseModel, Field
 
-from .. import store
+from .. import config, store
 from ..budget import budget_left, spent_this_month
 from ..deps import current_user
+from ..payments import PaymentDeclined, provider
 from ..seed import CATALOG, CATALOG_BY_ID
 
 router = APIRouter()
@@ -18,47 +22,40 @@ def catalog():
     return CATALOG
 
 
-def _luhn(num: str) -> bool:
-    total = 0
-    for i, d in enumerate(reversed(num)):
-        n = int(d)
-        if i % 2:
-            n = n * 2 - 9 if n > 4 else n * 2
-        total += n
-    return total % 10 == 0
-
-
 class Card(BaseModel):
-    number: str
-    exp: str  # MM/YY
-    cvc: str
-    name: str
+    number: str = Field(max_length=30)
+    exp: str = Field(max_length=7)  # MM/YY
+    cvc: str = Field(max_length=4)
+    name: str = Field(default="", max_length=100)
 
 
 class CheckoutReq(BaseModel):
-    product_ids: list[str]
+    product_ids: list[str] = Field(default_factory=list, max_length=30)
+    bag_ids: list[str] = Field(default_factory=list, max_length=30)
     card: Card
     confirm_over_budget: bool = False
 
 
 @router.post("/api/checkout")
-def checkout(req: CheckoutReq, uid: str = Depends(current_user)):
-    products = [CATALOG_BY_ID[p] for p in req.product_ids if p in CATALOG_BY_ID]
+def checkout(req: CheckoutReq, uid: str = Depends(current_user),
+             idempotency_key: str | None = Header(default=None, max_length=100)):
+    # A double-click or a retry after a dropped connection must not buy things twice.
+    if idempotency_key and (previous := store.find_order(uid, idempotency_key)):
+        return previous
+
+    bag_entries = []
+    for entry_id in req.bag_ids:
+        entry = store.get_bag_entry(uid, entry_id)
+        if not entry:
+            raise HTTPException(404, "That bag entry isn't yours or no longer exists")
+        if not entry.get("catalog_id"):
+            raise HTTPException(400, f"\"{entry.get('title', 'That entry')}\" is an idea, not a product you can buy yet")
+        bag_entries.append(entry)
+
+    ids = [*req.product_ids, *(e["catalog_id"] for e in bag_entries)]
+    products = [CATALOG_BY_ID[p] for p in ids if p in CATALOG_BY_ID]
     if not products:
         raise HTTPException(400, "Your bag is empty")
-
-    number = "".join(c for c in req.card.number if c.isdigit())
-    if not number.startswith("4") or len(number) not in (13, 16, 19) or not _luhn(number):
-        raise HTTPException(402, "Neor accepts Visa only - please check your Visa card number")
-    try:
-        mm, yy = req.card.exp.split("/")
-        exp = dt.date(2000 + int(yy), int(mm), 1)
-    except Exception:
-        raise HTTPException(402, "Expiry must be MM/YY")
-    if exp < dt.date.today().replace(day=1):
-        raise HTTPException(402, "This card has expired")
-    if not (req.card.cvc.isdigit() and len(req.card.cvc) == 3):
-        raise HTTPException(402, "CVV should be 3 digits")
 
     total = round(sum(p["price"] for p in products), 2)
     profile = store.get_profile(uid)
@@ -66,20 +63,29 @@ def checkout(req: CheckoutReq, uid: str = Depends(current_user)):
     if left is not None and total > left and not req.confirm_over_budget:
         raise HTTPException(409, f"This is ${total - left:.2f} over the budget you set. Confirm if you still want it.")
 
-    # The full card number is never stored or logged: we keep only last4 and a
-    # simulated network token, the way Visa Token Service replaces the PAN.
+    try:
+        charge = provider.charge(req.card.number, req.card.exp, req.card.cvc, total)
+    except PaymentDeclined as e:
+        raise HTTPException(e.status, e.message)
+
     order = {
         "created": dt.datetime.now().isoformat(timespec="seconds"),
         "items": [{"id": p["id"], "name": p["name"], "price": p["price"], "brand": p["brand"]} for p in products],
         "total": total,
-        "card": {"network": "visa", "last4": number[-4:], "token": "vtok_" + secrets.token_hex(8)},
+        "card": charge.as_dict(),
         "status": "confirmed",
+        "payment_mode": config.PAYMENT_MODE,
+        "notice": "Simulated checkout: no money moved and no real order was placed.",
         "points_earned": int(total),
+        "bag_ids": [e["id"] for e in bag_entries],
+        "idempotency_key": idempotency_key,
     }
     saved = store.add_order(uid, order)
     store.save_profile(uid, {"points": profile.get("points", 0) + int(total)})
+    for e in bag_entries:
+        store.update_bag_entry(uid, e["id"], {"status": "bought"})
 
-    # Post-purchase: the item walks straight into your closet, care guide attached.
+    # Post-purchase: the piece walks straight into the closet, marked as arriving.
     for p in products:
         store.add_item(uid, {
             "name": p["name"], "category": p["category"], "color": p["color"], "hex": p["hex"],
@@ -93,5 +99,16 @@ def checkout(req: CheckoutReq, uid: str = Depends(current_user)):
 @router.get("/api/orders")
 def orders(uid: str = Depends(current_user)):
     profile = store.get_profile(uid)
-    return {"orders": store.list_orders(uid), "budget": profile.get("budget"),
-            "spent_this_month": spent_this_month(uid), "points": profile.get("points", 0)}
+    bought = [i for i in store.list_items(uid) if i.get("catalog_id") and i.get("price")]
+    return {
+        "orders": store.list_orders(uid),
+        "budget": profile.get("budget"),
+        "spent_this_month": spent_this_month(uid),
+        "points": profile.get("points", 0),
+        # "Buy less, better": what each bought piece has cost per wear so far.
+        "cost_per_wear": [
+            {"item_id": i["id"], "name": i["name"], "price": i["price"], "wear_count": i.get("wear_count", 0),
+             "cost_per_wear": round(i["price"] / max(int(i.get("wear_count") or 0), 1), 2)}
+            for i in bought
+        ],
+    }

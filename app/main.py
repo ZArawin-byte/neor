@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from . import config
-from .routers import ai_routes, commerce, items, meta, profile
+from .routers import ai_routes, bag, commerce, items, meta, profile
 
 app = FastAPI(title="Neor API", description="Backend for Neor - step into your closet.")
 app.add_middleware(
@@ -21,6 +21,7 @@ app.include_router(meta.router)
 app.include_router(profile.router)
 app.include_router(items.router)
 app.include_router(commerce.router)
+app.include_router(bag.router)
 
 # --- AI lane routers ---
 app.include_router(ai_routes.router)

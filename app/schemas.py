@@ -105,3 +105,33 @@ class ItemPatch(_Loose):
 class ItemIn(ItemPatch):
     name: Str = "New item"
     category: Category = "top"
+
+
+# ---------------------------------------------------------------- bag (shopping list)
+
+BagSource = Literal["outfit", "critique", "chat", "window", "manual"]
+Priority = Literal["low", "medium", "high"]
+BagStatus = Literal["wanted", "bought", "dropped"]
+
+
+class BagEntryPatch(_Loose):
+    title: Str | None = None
+    reason: Note | None = None
+    priority: Priority | None = None
+    status: BagStatus | None = None
+
+
+class BagEntryIn(_Loose):
+    catalog_id: Str | None = None  # set = a real catalog product; empty = just an idea ("black ankle boots")
+    title: Str | None = None
+    reason: Note = ""
+    source: BagSource = "manual"
+    source_ref: Str | None = None  # e.g. the critique gap or outfit it came from
+    priority: Priority = "medium"
+    status: BagStatus = "wanted"
+
+    @model_validator(mode="after")
+    def needs_something_to_want(self):
+        if not self.catalog_id and not (self.title or "").strip():
+            raise ValueError("Give the idea a title, or pick a catalog product")
+        return self

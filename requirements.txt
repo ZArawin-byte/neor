@@ -5,3 +5,10 @@ python-dotenv==1.0.1
 httpx==0.28.1
 groq==0.13.1
 supabase==2.11.0
+
+# --- core lane (uploads, rate limits) ---
+Pillow==11.3.0
+slowapi==0.1.10
+
+# --- AI lane (care-label OCR) ---
+perceptron==0.4.0

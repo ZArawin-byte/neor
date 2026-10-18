@@ -24,7 +24,9 @@ const underPointer: CollisionDetection = (args) => (args.pointerCoordinates ? po
 function Garment({ snap, stretch }: { snap: BoardPiece["snap"]; stretch?: boolean }) {
   const src = assetUrl(snap.image_url);
   return src
-    ? <img src={src} alt={snap.name} draggable={false} style={snap.rotation ? { rotate: `${snap.rotation}deg` } : undefined} />
+    ? <img src={src} alt={snap.name} draggable={false}
+        // shoes sit on the floor; everything else hangs from its collar or waistband
+        style={{ rotate: snap.rotation ? `${snap.rotation}deg` : undefined, objectPosition: RACK_BY_ID[snap.rack].shape === "shoe" ? "center bottom" : "center top" }} />
     : <Silhouette shape={RACK_BY_ID[snap.rack].shape} hex={snap.hex} stretch={stretch} />;
 }
 

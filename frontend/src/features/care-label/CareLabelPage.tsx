@@ -107,7 +107,12 @@ export default function CareLabelPage() {
                     </li>
                   ))}
                 </ul>
-              ) : <p className="muted">No fibres were legible on this label.</p>}
+              ) : (
+                <p className="muted">
+                  This tag doesn't list what the fabric is. That's usually on a second tag, often the size tag or one
+                  sewn into the side seam. Photograph that one too.
+                </p>
+              )}
 
               {rules.length > 0 && (
                 <>
@@ -120,7 +125,7 @@ export default function CareLabelPage() {
                 <>
                   <h2>How to look after it</h2>
                   <ol className="steps">{result.care_steps.map((s) => <li key={s}>{s}</li>)}</ol>
-                  <p className="why">Steps marked "label" come from the tag itself. The rest is general care for these fibres.</p>
+                  <p className="why">Steps marked "label" come from the tag itself. Any others are general care for the fibres it lists.</p>
                 </>
               )}
               {result.saved_to_item && <p className="saved">Saved to that piece in your closet.</p>}

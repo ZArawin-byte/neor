@@ -135,3 +135,60 @@ class BagEntryIn(_Loose):
         if not self.catalog_id and not (self.title or "").strip():
             raise ValueError("Give the idea a title, or pick a catalog product")
         return self
+
+
+# ---------------------------------------------------------------- saved boards and looks (FRONTEND_SPEC 8.2)
+
+ClientId = Annotated[str, Field(pattern=r"^[A-Za-z0-9_-]{8,64}$")]
+Pieces = Annotated[list[dict], Field(max_length=40)]
+MAX_PIECES_JSON = 60_000  # characters; a board of 40 stickers is ~15k
+
+
+def _check_pieces(pieces: list[dict] | None) -> None:
+    import json
+
+    if pieces and len(json.dumps(pieces)) > MAX_PIECES_JSON:
+        raise ValueError("That board is too large to save")
+    for p in pieces or []:
+        img = (p.get("snap") or {}).get("image_url")
+        if isinstance(img, str) and img.startswith("data:"):
+            raise ValueError("Pieces must reference photos by link, not embed them")
+
+
+class BoardIn(_Loose):
+    id: ClientId | None = None
+    name: Str = "Table"
+    pieces: Pieces = Field(default_factory=list)
+    savedAt: Str | None = None
+
+    @model_validator(mode="after")
+    def small_and_linked(self):
+        _check_pieces(self.pieces)
+        return self
+
+
+class LookIn(BoardIn):
+    name: Str = "Look"
+    photo: Annotated[str, Field(max_length=2000)] | None = None
+    tryon: Pieces | None = None
+    verdict: Note = ""
+    harmony: Str = ""
+    occasion: Str | None = None
+    favorite: bool = False
+
+    @field_validator("photo")
+    @classmethod
+    def photo_is_a_link(cls, v):
+        if v is None or v.startswith(("https://", "http://", "/uploads/")):
+            return v
+        raise ValueError("photo must be a link to an uploaded photo, not embedded image data")
+
+    @model_validator(mode="after")
+    def tryon_small_and_linked(self):
+        _check_pieces(self.tryon)
+        return self
+
+
+class LookPatch(_Loose):
+    favorite: bool | None = None
+    name: Str | None = None

@@ -8,6 +8,7 @@ needed. Without them it seeds the local demo-mode user. It never touches any oth
 """
 import datetime as dt
 import os
+import secrets
 import sys
 
 from app import config, store
@@ -59,11 +60,11 @@ def seed(uid: str) -> None:
            _piece(items["Canvas Sneakers"], 70, 78, 4), _piece(items["Denim Jacket"], 68, 32, -2)]
     weekend = [_piece(items["Grey Crew Tee"], 35, 30, 2), _piece(items["Black Skinny Jeans"], 38, 68, -2),
                _piece(items["Navy Hoodie"], 68, 30, 3), _piece(items["Canvas Sneakers"], 70, 78, -4)]
-    store.add_board(uid, {"name": "Table no. 1", "pieces": uni, "savedAt": now})
-    store.add_board(uid, {"name": "Lazy Sunday", "pieces": weekend, "savedAt": now})
-    store.add_look(uid, {"name": "Lecture day", "pieces": uni, "photo": None, "verdict": "Soft blush, grounded by black.",
+    store.add_board(uid, {"id": secrets.token_hex(8), "name": "Table no. 1", "pieces": uni, "savedAt": now})
+    store.add_board(uid, {"id": secrets.token_hex(8), "name": "Lazy Sunday", "pieces": weekend, "savedAt": now})
+    store.add_look(uid, {"id": secrets.token_hex(8), "name": "Lecture day", "pieces": uni, "photo": None, "verdict": "Soft blush, grounded by black.",
                          "harmony": "Single accent · 90", "occasion": "uni", "favorite": True, "savedAt": now})
-    store.add_look(uid, {"name": "Lazy Sunday", "pieces": weekend, "photo": None, "verdict": "Tonal and easy.",
+    store.add_look(uid, {"id": secrets.token_hex(8), "name": "Lazy Sunday", "pieces": weekend, "photo": None, "verdict": "Tonal and easy.",
                          "harmony": "Tonal neutrals · 84", "occasion": "everyday", "favorite": False, "savedAt": now})
     print(f"Seeded the demo account: {len(items)} pieces, 2 bag entries, 2 boards, 2 looks.")
 

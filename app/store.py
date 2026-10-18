@@ -291,11 +291,14 @@ def _row_get(table: str, uid: str, row_id: str) -> dict | None:
 
 
 def _row_add(table: str, uid: str, data: dict) -> dict:
+    """Boards and looks arrive with the id the browser made, so offline and online copies match.
+    Bag entries get a server-made id."""
+    row_id = data.get("id")
     data = {k: v for k, v in data.items() if k != "id"}
     if config.USE_SUPABASE:
-        row = sb().table(table).insert({"user_id": uid, "data": data}).execute().data[0]
+        row = sb().table(table).insert({"user_id": uid, "data": data, **({"id": row_id} if row_id else {})}).execute().data[0]
         return {**row["data"], "id": row["id"]}
-    new = {**data, "id": uuid.uuid4().hex}
+    new = {**data, "id": row_id or uuid.uuid4().hex}
     with _lock:
         db = _load()
         db.setdefault(table, {}).setdefault(uid, []).insert(0, new)
@@ -339,10 +342,13 @@ def update_bag_entry(uid: str, entry_id: str, patch: dict) -> dict | None: retur
 def delete_bag_entry(uid: str, entry_id: str) -> bool: return _row_delete("bag", uid, entry_id)
 
 def list_boards(uid: str) -> list[dict]: return _rows("boards", uid)
+def get_board(uid: str, board_id: str) -> dict | None: return _row_get("boards", uid, board_id)
 def add_board(uid: str, board: dict) -> dict: return _row_add("boards", uid, board)
+def update_board(uid: str, board_id: str, patch: dict) -> dict | None: return _row_update("boards", uid, board_id, patch)
 def delete_board(uid: str, board_id: str) -> bool: return _row_delete("boards", uid, board_id)
 
 def list_looks(uid: str) -> list[dict]: return _rows("looks", uid)  # the AI lane reads favourites from here
+def get_look(uid: str, look_id: str) -> dict | None: return _row_get("looks", uid, look_id)
 def add_look(uid: str, look: dict) -> dict: return _row_add("looks", uid, look)
 def update_look(uid: str, look_id: str, patch: dict) -> dict | None: return _row_update("looks", uid, look_id, patch)
 def delete_look(uid: str, look_id: str) -> bool: return _row_delete("looks", uid, look_id)

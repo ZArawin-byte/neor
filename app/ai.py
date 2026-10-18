@@ -475,6 +475,10 @@ def care(item: dict, profile: dict | None = None, owned: bool = False) -> dict:
     """Facts first: the care label (if read), then the fabric knowledge base, then the model's wording."""
     fibers = [f["fiber"] for f in item.get("fibers") or [] if f.get("fiber")] or care_kb.fibers_in(item.get("material", ""))
     kb_steps = care_kb.care_steps(fibers)
+    if item.get("care_label"):  # the label's own rules come before any general advice
+        from .vision import label_steps, parse_label
+
+        kb_steps = list(dict.fromkeys(label_steps(parse_label(item["care_label"])[1]) + kb_steps))[:8]
     basis = "care label" if item.get("care_label") or item.get("fibers") else "material" if fibers else "none"
     facts = {k: item.get(k) for k in ("name", "category", "material", "color", "price", "tier") if item.get(k)}
     if item.get("care_label"):

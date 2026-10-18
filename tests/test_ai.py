@@ -18,6 +18,7 @@ SUNNY = {"temp_c": 8.0, "precip_prob": 70, "wind_kmh": 6.0, "condition": "light 
 def offline(monkeypatch):
     """No test may touch the network: weather is stubbed and the places cache starts empty."""
     monkeypatch.setattr(weather, "get_weather", lambda place, date=None: None)
+    monkeypatch.setattr(config, "USE_PERCEPTRON", False)
     places._cache.clear()
 
 
@@ -504,3 +505,86 @@ def test_groq_can_reword_with_real_numbers(client, fake):
     out = client.post("/api/ai/weak-spots").json()
     assert out["summary"] == "A tidy closet with room to grow."
     assert out["gaps"][0]["why"] == f"Adding it gives you {g0['unlocks']} more outfits."
+
+
+# ------------------------------------------------------------------ A5: care labels
+
+LABEL = "80% WOOL\n20% NYLON\nHAND WASH 30°C\nDO NOT BLEACH\nDO NOT TUMBLE DRY\nCOOL IRON"
+
+
+def _label(client, **data):
+    return client.post("/api/items/care-label", files={"file": ("l.jpg", make_image(), "image/jpeg")}, data=data)
+
+
+def test_label_regex_parses_fibres_and_symbols():
+    from app.vision import parse_label
+
+    fibers, care = parse_label(LABEL)
+    assert fibers == [{"fiber": "wool", "percent": 80.0}, {"fiber": "nylon", "percent": 20.0}]
+    assert care == {"wash_temp_c": 30, "machine_wash": False, "bleach": False, "tumble_dry": False, "iron": True,
+                    "dry_clean": None}
+    assert parse_label("55% Cotton, 45% Polyester. Machine wash 40C.")[0][1] == {"fiber": "polyester", "percent": 45.0}
+    assert parse_label("Shell 100% Polyamide (lining: 100% rayon)")[0] == [
+        {"fiber": "nylon", "percent": 100.0}, {"fiber": "viscose", "percent": 100.0}]
+
+
+def test_label_offline_without_keys(client):
+    r = _label(client)
+    assert r.status_code == 200
+    out = r.json()
+    assert out["ai"] == "offline" and out["fiber_composition"] == [] and out["source"] == "label"
+
+
+def test_label_with_perceptron_and_regex(client, monkeypatch):
+    from app import vision
+
+    monkeypatch.setattr(config, "USE_PERCEPTRON", True)
+    monkeypatch.setattr(vision, "_ocr_perceptron", lambda image: LABEL)
+    item = client.post("/api/items", data={"meta": '{"name": "Jumper", "category": "top"}'}).json()
+    out = _label(client, item_id=item["id"]).json()
+    assert out["ai"] == "perceptron" and out["fiber_composition"][0] == {"fiber": "wool", "percent": 80.0}
+    assert out["care_steps"][0] == "Hand wash only (label)." and out["saved_to_item"] is True
+    saved = next(i for i in client.get("/api/items").json() if i["id"] == item["id"])
+    assert saved["fibers"][1]["fiber"] == "nylon" and "WOOL" in saved["care_label"]
+    care = client.post("/api/ai/care", json={"item_id": item["id"]}).json()
+    assert care["care_basis"] == "care label" and care["care_steps"][0] == "Hand wash only (label)."
+
+
+def test_label_model_only_fills_what_regex_missed(client, fake, monkeypatch):
+    from app import vision
+
+    monkeypatch.setattr(config, "USE_PERCEPTRON", True)
+    monkeypatch.setattr(vision, "_ocr_perceptron", lambda image: "100% COTTON")
+    fake.load({"text": "100% COTTON", "fiber_composition": [{"fiber": "silk", "percent": 100}],
+               "care": {"wash_temp_c": 40, "machine_wash": True, "bleach": None, "tumble_dry": None, "iron": None,
+                        "dry_clean": None}})
+    out = _label(client).json()
+    assert out["fiber_composition"] == [{"fiber": "cotton", "percent": 100.0}]  # regex wins
+    assert out["care"]["wash_temp_c"] == 40 and out["care"]["machine_wash"] is True  # model filled the gaps
+
+
+def test_label_perceptron_error_falls_back_to_groq(client, fake, monkeypatch):
+    from app import vision
+
+    def boom(image):
+        raise RuntimeError("quota")
+
+    monkeypatch.setattr(config, "USE_PERCEPTRON", True)
+    monkeypatch.setattr(vision, "_ocr_perceptron", boom)
+    fake.load({"text": LABEL, "fiber_composition": [], "care": {
+        "wash_temp_c": None, "machine_wash": None, "bleach": None, "tumble_dry": None, "iron": None, "dry_clean": None}})
+    out = _label(client).json()
+    assert out["ai"] == "groq" and out["fiber_composition"][0]["fiber"] == "wool"
+
+
+def test_label_never_saves_to_someone_elses_item(client, as_user, monkeypatch):
+    from app import vision
+
+    monkeypatch.setattr(config, "USE_PERCEPTRON", True)
+    monkeypatch.setattr(vision, "_ocr_perceptron", lambda image: LABEL)
+    as_user("alice")
+    item = client.post("/api/items", data={"meta": '{"name": "Alice coat", "category": "outerwear"}'}).json()
+    as_user("mallory")
+    assert _label(client, item_id=item["id"]).json()["saved_to_item"] is False
+    as_user("alice")
+    assert "care_label" not in next(i for i in client.get("/api/items").json() if i["id"] == item["id"])

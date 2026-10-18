@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from .. import store
 from ..deps import current_user
+from ..schemas import ItemIn, ItemPatch
 from ..seed import STARTER_CLOSET
 from ..uploads import IMAGE_TYPES, MAX_UPLOAD, read_image
 
@@ -27,7 +28,10 @@ def list_items(uid: str = Depends(current_user)):
 @router.post("/api/items")
 async def add_item(meta: str = Form(...), file: UploadFile | None = File(default=None),
                    uid: str = Depends(current_user)):
-    item = json.loads(meta)
+    try:
+        item = ItemIn.model_validate(json.loads(meta)).model_dump(exclude_none=True, mode="json")
+    except (ValueError, TypeError) as e:  # bad JSON or a field that fails validation
+        raise HTTPException(422, f"That item's details aren't valid: {e}")
     if file is not None and file.filename:
         data, ext, ctype = await read_image(file)
         return store.add_item(uid, item, data, ext, ctype)
@@ -35,14 +39,27 @@ async def add_item(meta: str = Form(...), file: UploadFile | None = File(default
 
 
 @router.patch("/api/items/{item_id}")
-def patch_item(item_id: str, patch: dict, uid: str = Depends(current_user)):
-    store.update_item(uid, item_id, patch)
+def patch_item(item_id: str, patch: ItemPatch, uid: str = Depends(current_user)):
+    if not store.update_item(uid, item_id, patch.model_dump(exclude_unset=True, mode="json")):
+        raise HTTPException(404, "Item not found")
     return {"ok": True}
+
+
+@router.post("/api/items/{item_id}/worn")
+def mark_worn(item_id: str, uid: str = Depends(current_user)):
+    """One more wear: feeds cost-per-wear on the orders page and the stylist's 'most worn' signal."""
+    item = store.get_item(uid, item_id)
+    if not item:
+        raise HTTPException(404, "Item not found")
+    count = int(item.get("wear_count") or 0) + 1
+    store.update_item(uid, item_id, {"wear_count": count})
+    return {"ok": True, "wear_count": count}
 
 
 @router.delete("/api/items/{item_id}")
 def remove_item(item_id: str, uid: str = Depends(current_user)):
-    store.delete_item(uid, item_id)
+    if not store.delete_item(uid, item_id):
+        raise HTTPException(404, "Item not found")
     return {"ok": True}
 
 
@@ -132,4 +149,8 @@ async def import_from_link(req: ImportReq, uid: str = Depends(current_user)):
 
 @router.post("/api/items/starter")
 def starter_closet(uid: str = Depends(current_user)):
+    # Calling this twice used to add 8 duplicates; now it hands back the starter pieces you already have.
+    existing = [i for i in store.list_items(uid) if i.get("starter")]
+    if existing:
+        return existing
     return [store.add_item(uid, {**i, "starter": True}) for i in STARTER_CLOSET]

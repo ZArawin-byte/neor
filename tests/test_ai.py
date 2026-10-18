@@ -70,10 +70,11 @@ def starter(client):
 
 def test_valid_output_is_used(client, fake):
     items = starter(client)
-    fake.load(outfit_reply([items[0]["id"], items[1]["id"]], ["p09"]))
+    g = fake.load(outfit_reply(["i1", "i2"]))
     out = client.post("/api/ai/outfit", json={"occasion": "uni"}).json()
-    assert out["ai"] == "groq" and out["closet_ids"] == [items[0]["id"], items[1]["id"]]
-    assert out["missing"][0]["catalog_id"] == "p09"
+    owned = {i["id"] for i in items}
+    assert out["ai"] == "groq" and len(out["closet_ids"]) == 2 and set(out["closet_ids"]) <= owned
+    assert not any(i in g.prompt_text() for i in owned)  # the model only ever sees aliases
     rf = fake.groq.calls[0]["response_format"]
     assert rf["type"] == "json_schema" and rf["json_schema"]["strict"] is True
     assert rf["json_schema"]["schema"]["additionalProperties"] is False
@@ -104,10 +105,10 @@ def test_wrong_types_fall_back(client, fake):
 
 def test_invented_ids_are_dropped(client, fake):
     items = starter(client)
-    fake.load(outfit_reply([items[0]["id"], "made-up-shirt"], ["p09", "p999"]))
+    fake.load(outfit_reply(["i1", "i999", items[0]["id"], "made-up-shirt"], ["p999"]))
     out = client.post("/api/ai/outfit", json={"occasion": "uni"}).json()
-    assert out["closet_ids"] == [items[0]["id"]]
-    assert [m["catalog_id"] for m in out["missing"]] == ["p09"]
+    assert len(out["closet_ids"]) == 1 and out["closet_ids"][0] in {i["id"] for i in items}
+    assert all(m["catalog_id"] != "p999" for m in out["missing"])
 
     fake.load({"reply": "Try these", "picks": [
         {"catalog_id": "p01", "why": "crisp", "pairs_with": [items[1]["id"], "ghost"]},
@@ -148,7 +149,7 @@ def test_laundry_never_reaches_prompt_or_rules(client, fake, monkeypatch):
     items = starter(client)
     dirty = items[0]
     client.patch(f"/api/items/{dirty['id']}", json={"laundry": True, "name": "Laundry Secret Tee"})
-    g = fake.load(outfit_reply([dirty["id"], items[1]["id"]]))
+    g = fake.load(outfit_reply(["i1", "i2", "i3", "i4", "i5", "i6", "i7", "i8"]))
     out = client.post("/api/ai/outfit", json={"occasion": dirty["occasions"][0]}).json()
     assert "Laundry Secret Tee" not in g.prompt_text() and dirty["id"] not in g.prompt_text()
     assert dirty["id"] not in out["closet_ids"]
@@ -345,3 +346,98 @@ def test_care_uses_knowledge_base_and_marks_owned_estimates(client):
 def test_analyze_rules_path_still_returns_rack_and_confidence(client):
     out = client.post("/api/items/analyze", files={"file": ("a.jpg", make_image(), "image/jpeg")}).json()
     assert out["rack"] == "tshirts" and out["confidence"] == 0.0 and out["material"].startswith("unknown")
+
+
+# ------------------------------------------------------------------ A3: the stylist
+
+def test_harmony_port_matches_color_ts():
+    from app.stylist import harmony_of
+
+    # Expected values were produced by running frontend/src/lib/color.ts harmonyOf() on the same palettes.
+    cases = {
+        ("#f5f2ea", "#2c3e66", "#fafafa"): ("Tonal neutrals", 84, "neutral", "high"),
+        ("#d98fa0", "#1d1d1f"): ("Single accent", 90, "warm", "high"),
+        ("#d98fa0", "#9caf88"): ("Split contrast", 76, "warm", "low"),
+        ("#c3b1e1", "#6b6b3a", "#e7a1b0"): ("Competing colours", 52, "warm", "medium"),
+        ("#3d6c9c", "#c8862a"): ("Complementary", 78, "mixed", "low"),
+        ("#e9b7bd", "#d98fa0"): ("Analogous", 86, "warm", "low"),
+        ("#222226", "#a7a9ac"): ("Tonal neutrals", 84, "neutral", "high"),
+    }
+    for hexes, want in cases.items():
+        h = harmony_of(list(hexes))
+        assert (h["name"], h["score"], h["temperature"], h["contrast"]) == want, hexes
+
+
+def test_rules_outfit_is_deterministic(client):
+    import random
+
+    from app import stylist
+    from app.seed import STARTER_CLOSET
+
+    closet = [{**i, "id": f"s{n}"} for n, i in enumerate(STARTER_CLOSET, 1)]
+    ctx = stylist.context({"styles": ["classic"]}, "uni", "fall", {"temp_c": 6, "precip_prob": 80,
+                                                                    "condition": "rain", "wind_kmh": 5})
+    first = stylist.build(closet, ctx)
+    for seed in range(5):
+        shuffled = closet[:]
+        random.Random(seed).shuffle(shuffled)
+        assert stylist.build(shuffled, ctx)["outfits"] == first["outfits"]
+    assert len(first["outfits"]) == 3
+
+    starter(client)
+    a = client.post("/api/ai/outfit", json={"occasion": "uni", "season": "fall"}).json()
+    b = client.post("/api/ai/outfit", json={"occasion": "uni", "season": "fall"}).json()
+    assert a == b and a["ai"] == "rules" and a["closet_ids"]
+
+
+def test_rules_reasons_come_from_scores(client):
+    starter(client)
+    out = client.post("/api/ai/outfit", json={"occasion": "uni"}).json()
+    assert "tagged for uni" in out["why"] and "/100" in out["why"] and out["harmony"]["score"] > 0
+
+
+def test_groq_only_sees_and_returns_the_shortlist(client, fake):
+    items = starter(client)
+    g = fake.load(outfit_reply(["i2", "i3", "i404"]))
+    out = client.post("/api/ai/outfit", json={"occasion": "uni"}).json()
+    prompt = g.prompt_text()
+    assert "SHORTLIST" in prompt and "READY OUTFITS" in prompt and "CATALOG:" not in prompt
+    assert len(out["closet_ids"]) == 2 and set(out["closet_ids"]) <= {i["id"] for i in items}
+
+
+def test_missing_slot_respects_modesty_and_budget(client):
+    client.post("/api/items", data={"meta": '{"name": "White tee", "category": "top", "hex": "#ffffff", "occasions": ["birthday"]}'})
+    client.post("/api/items", data={"meta": '{"name": "Black jeans", "category": "bottom", "hex": "#111111", "occasions": ["birthday"]}'})
+    client.put("/api/profile", json={"modesty": "modest", "budget": 100})
+    out = client.post("/api/ai/outfit", json={"occasion": "birthday"}).json()
+    from app.seed import CATALOG_BY_ID
+
+    assert out["missing"], "no shoes in the closet, so a pair should be suggested"
+    for m in out["missing"]:
+        p = CATALOG_BY_ID[m["catalog_id"]]
+        assert p["modest"] and p["price"] <= 100 and m["why"]
+
+
+def test_favourite_looks_boost_their_pieces(client):
+    from app import stylist
+
+    items = starter(client)
+    tops = [i for i in items if i["category"] == "top"]
+    loved = sorted(tops, key=lambda i: i["id"])[-1]
+    ctx = stylist.context({}, "uni")
+    base = stylist.score_item(loved, ctx)[0]
+    boosted = stylist.score_item(loved, stylist.context({}, "uni", liked={loved["id"]}))[0]
+    assert boosted == base + 1
+    client.post("/api/looks", json={"name": "Fave", "favorite": True, "pieces": [
+        {"key": "k1", "source": "closet", "refId": loved["id"], "x": 50, "y": 50, "rot": 0,
+         "snap": {"name": loved["name"], "hex": "#888888", "rack": "tshirts"}}]})
+    from app.routers.ai_routes import liked_ids
+
+    assert loved["id"] in liked_ids(config.DEMO_USER_ID)
+
+
+def test_shop_tells_the_model_what_you_already_own(client, fake):
+    client.post("/api/items", data={"meta": '{"name": "My white sneakers", "category": "shoes", "hex": "#fafafa"}'})
+    g = fake.load({"reply": "Skip these, you have a pair.", "picks": []})
+    client.post("/api/ai/shop", json={"message": "white sneakers"})
+    assert "You already own My white sneakers" in g.prompt_text()

@@ -1,4 +1,4 @@
-# Render blueprint for the NEor API: Dashboard -> New -> Blueprint -> pick this repo.
+# Render blueprint for the neor API: Dashboard -> New -> Blueprint -> pick this repo.
 # Production needs Supabase: Render's disk is wiped on every deploy, so demo-mode JSON storage won't last.
 services:
   - type: web

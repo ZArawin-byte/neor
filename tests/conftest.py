@@ -40,7 +40,7 @@ def make_image(fmt: str = "JPEG", gps: bool = False, size=(64, 48)) -> bytes:
     out = io.BytesIO()
     if gps:
         exif = img.getexif()
-        exif[0x0110] = "NeorCam"  # camera model
+        exif[0x0110] = "neorCam"  # camera model
         exif[0x8825] = {1: "N", 2: (47.0, 39.0, 0.0), 3: "W", 4: (122.0, 18.0, 0.0)}  # GPS IFD
         img.save(out, fmt, exif=exif)
     else:

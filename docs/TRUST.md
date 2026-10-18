@@ -1,6 +1,6 @@
-# NEor: trust, privacy and safety
+# neor: trust, privacy and safety
 
-NEor handles personal things: closet photos, a full-length mirror photo, optional body measurements, faith-related dress preferences, a monthly budget, and purchases. This page lists what we store, who can see it, and the safeguards in the code, so an auditor can check each claim against the code.
+neor handles personal things: closet photos, a full-length mirror photo, optional body measurements, faith-related dress preferences, a monthly budget, and purchases. This page lists what we store, who can see it, and the safeguards in the code, so an auditor can check each claim against the code.
 
 Each claim names where it's enforced. The **AI-lane** items are being built on the `be/ai` branch and are marked *(AI lane, in progress)* until it merges.
 
@@ -33,7 +33,7 @@ Demo mode (no Supabase keys) keeps the same data in a local file, `data/local_db
 ## Payments: simulated, Visa-only, and labelled
 
 The organisers confirmed no Visa API is required, so **no money ever moves**. To stay honest about it (`app/payments.py`):
-- **Only published Visa test card numbers are accepted** (e.g. 4242 4242 4242 4242). Other networks' test cards get "NEor accepts Visa only". Any other number, including a real card, is refused, so a real card number goes nowhere.
+- **Only published Visa test card numbers are accepted** (e.g. 4242 4242 4242 4242). Other networks' test cards get "neor accepts Visa only". Any other number, including a real card, is refused, so a real card number goes nowhere.
 - **Every order says so:** it's marked `payment_mode: "simulated"` with the note "no money moved and no real order was placed". The checkout page says it before you type anything.
 - **Card details are never logged or stored.** Only the network, the last 4 digits and a simulated token are kept. Test: `test_card_number_never_reaches_the_logs`.
 - **No double charges.** An `Idempotency-Key` header means a double-click or retry returns the first order instead of making a second.

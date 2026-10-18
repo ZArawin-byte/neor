@@ -18,7 +18,7 @@ import httpx
 from fastapi import HTTPException
 
 MAX_PAGE = 2 * 1024 * 1024
-HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; NeorBot/0.1; +https://neor-closet.web.app)",
+HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; neorbot/0.1; +https://neor-closet.web.app)",
            "Accept": "text/html,application/xhtml+xml,image/*;q=0.9,*/*;q=0.8"}
 
 

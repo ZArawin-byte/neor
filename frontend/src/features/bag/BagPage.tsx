@@ -139,7 +139,7 @@ export default function BagPage() {
             <p className="bag-total"><span>Total</span><strong>{money(total)}</strong></p>
             {left != null && <p className={left < total ? "error" : "muted"}>Budget left this month: {money(left)}</p>}
           </div>
-          <p className="bag-sim"><strong>Simulated checkout: no money moves.</strong> NEor accepts Visa only. Use the Visa test card 4242 4242 4242 4242, any future expiry and any 3-digit CVC.</p>
+          <p className="bag-sim"><strong>Simulated checkout: no money moves.</strong> neor accepts Visa only. Use the Visa test card 4242 4242 4242 4242, any future expiry and any 3-digit CVC.</p>
           <label>Name on card<input id="bag-name" className="text-input" value={card.name} onChange={(e) => setCard({ ...card, name: e.target.value })} autoComplete="off" /></label>
           <label>Visa card number<input id="bag-number" className="text-input" inputMode="numeric" placeholder="4242 4242 4242 4242" value={card.number} onChange={(e) => setCard({ ...card, number: e.target.value })} autoComplete="off" required /></label>
           <div className="row">
@@ -158,7 +158,7 @@ export default function BagPage() {
 
       {catalog.length > 0 && (
         <details className="bag-catalog">
-          <summary>Add from the NEor sample catalog</summary>
+          <summary>Add from the neor sample catalog</summary>
           <p className="muted">A sample catalog with made-up brands, for the demo. Prices are not real listings.</p>
           <ul>
             {catalog.filter((p) => !inBag.has(p.id)).map((p) => (

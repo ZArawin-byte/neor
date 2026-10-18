@@ -12,7 +12,7 @@ function HallwayNotice() {
       <span className="tag-hole" aria-hidden="true" />
       <span className="notice-kicker">Your bag</span>
       <strong>Ready when you are</strong>
-      <span>Pieces Neor thinks are worth it, each with its reason. Visa checkout.</span>
+      <span>Pieces neor thinks are worth it, each with its reason. Visa checkout.</span>
       <span className="notice-cta">Open the bag →</span>
     </Link>
   );

@@ -1,6 +1,8 @@
-# NEor: team rules for every Claude Code session
+# neor: team rules for every Claude Code session
 
-NEor is an AI wardrobe and styling app for DubHacks 2026, entered in Visa's "Reimagine Shopping" track. **Submissions are due Sun 18 Oct 2026 at 10:30 AM PT.** Prefer working and honest over clever.
+**The name is always written in lowercase: neor.** Never NEor, Neor or NEOR, in code, copy, docs or commits.
+
+neor is an AI wardrobe and styling app for DubHacks 2026, entered in Visa's "Reimagine Shopping" track. **Submissions are due Sun 18 Oct 2026 at 10:30 AM PT.** Prefer working and honest over clever.
 
 - Backend: FastAPI in `app/`. Data goes to Supabase when its keys are set, otherwise to a local JSON file (demo mode, no keys needed).
 - Frontend: React and Vite in `frontend/`. It's already built; see `frontend/FRONTEND_SPEC.md`.

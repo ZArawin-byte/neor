@@ -41,7 +41,7 @@ class SimulatedVisaProvider:
     def charge(self, number: str, exp: str, cvc: str, amount: float) -> Charge:
         digits = "".join(c for c in number if c.isdigit())
         if digits in OTHER_NETWORK_TEST_CARDS:
-            raise PaymentDeclined("NEor accepts Visa only")
+            raise PaymentDeclined("neor accepts Visa only")
         if digits not in VISA_TEST_CARDS:
             raise PaymentDeclined("Simulated checkout: use a Visa test card (4242 4242 4242 4242)")
         try:

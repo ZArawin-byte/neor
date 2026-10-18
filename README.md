@@ -1,4 +1,4 @@
-# NEor: step into your closet
+# neor: step into your closet
 
 An AI stylist that dresses you from the clothes you already own, then walks you from a real gap in your wardrobe to a Visa-only checkout that respects your budget. Built for DubHacks 2026, in Visa's "Reimagine Shopping" track.
 

@@ -7,6 +7,7 @@ export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
+/** Exported so feature modules (src/features/*) can add their own endpoints without editing this file. */
 export async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await getToken();
   const headers = new Headers(init.headers);
@@ -20,7 +21,7 @@ export async function call<T>(path: string, init: RequestInit = {}): Promise<T> 
   return res.json();
 }
 
-const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) });
+export const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) });
 
 /** Local uploads come back as "/uploads/..." - prefix them when the API lives elsewhere. */
 export const assetUrl = (u?: string | null) => (u && u.startsWith("/") ? `${API}${u}` : u ?? null);

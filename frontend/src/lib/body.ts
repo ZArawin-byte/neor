@@ -155,10 +155,14 @@ export function fitPiece(snap: PieceSnapshot, b: Body): Fit {
     scarf: [b.shoulderW * 0.7, b.shoulderY - torso * 0.12, b.shoulderY + torso * 0.65],
   };
   if (snap.image_url) {
-    // A real photo can't be stretched without looking wrong: size it by width, centre it in its zone.
+    // A photo can't be stretched without looking wrong. Give it the whole zone its garment covers
+    // (wide enough for sleeves or a flat-laid leg), and the image grows to fill that box at its own
+    // proportions, pinned to the top so the collar/waistband lands on the shoulders/waist.
     const [tw, y0, y1] = target[shape] ?? [b.shoulderW * 0.6, b.hipY - 4, b.hipY + 4];
-    const grow = shape === "pants" || shape === "skirt" || shape === "shorts" ? 1.15 : shape === "shoe" ? 1 : 1.55;
-    return { x: b.cx, y: (y0 + y1) / 2, w: tw * grow };
+    const across: Record<string, number> = { tee: 2.3, shirt: 2.2, tank: 1.6, sweater: 2.3, jacket: 2.3, pants: 1.7,
+      shorts: 1.6, skirt: 1.6, dress: 2.6, shoe: 1.3, scarf: 1.3 };
+    const h = (y1 - y0) * (shape === "shoe" ? 1.6 : 1.04);
+    return { x: b.cx, y: y0 + h / 2 - (shape === "shoe" ? (y1 - y0) * 0.6 : 0), w: tw * (across[shape] ?? 1.4), h };
   }
   const a = ANCHORS[shape];
   if (!a) { // bags, jewellery, socks: by the hip, not stretched

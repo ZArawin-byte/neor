@@ -126,6 +126,7 @@ function PriceScale({ v, online, paid }: { v: Verdict; online: number[]; paid: n
 
 export default function MarketPage() {
   const [cfg, setCfg] = useState<MarketConfig | null>(null);
+  const [noServer, setNoServer] = useState(false); // e.g. the static site with no API behind it
   const [signedIn, setSignedIn] = useState(false);
   const [place, setPlaceState] = useState<Place | null>(readPlace);
   const [picking, setPicking] = useState(false);
@@ -155,7 +156,7 @@ export default function MarketPage() {
 
   useEffect(() => {
     isSignedIn().then(setSignedIn);
-    market.config().then(setCfg).catch(() => setCfg({ vision: false, shopping: false, countries: {} }));
+    market.config().then(setCfg).catch(() => { setNoServer(true); setCfg({ vision: false, shopping: false, countries: { us: "USD" } }); });
   }, []);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(""), 3800); return () => clearTimeout(t); }, [toast]);
 
@@ -171,7 +172,9 @@ export default function MarketPage() {
   async function onPhoto(file: File) {
     setPhoto(file); setFound(null); setLookNote(""); setEst(null); setChecked("");
     if (!cfg?.vision) {
-      setLookNote("Photo recognition isn't switched on for this server yet, so type what it is.");
+      setLookNote(noServer
+        ? "Can't reach the neor server, so photos can't be recognised and prices can't be checked here. Run the backend (see the README) and open the app on localhost."
+        : "Photo recognition isn't switched on for this server yet, so type what it is.");
       return;
     }
     setLooking(true);

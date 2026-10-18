@@ -15,6 +15,7 @@ export interface Piece {
   seasons?: string[];
   occasions?: string[];
   rotation?: number;
+  link?: string;
 }
 
 export const fromItem = (i: Item): Piece => ({

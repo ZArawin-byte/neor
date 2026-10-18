@@ -337,6 +337,8 @@ async def scheduler():
 def start(app):
     @app.on_event("startup")
     async def _start():
+        if not config.LAZY_SCHEDULER:
+            return
         asyncio.get_running_loop().create_task(scheduler())
 
 

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { api } from "./api";
+import { api, rememberFreshLinks } from "./api";
 import { guessRack, RACKS, type RackId } from "./racks";
 import type { Item, Product, Profile } from "./types";
 
@@ -52,6 +52,7 @@ export function ClosetProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const [its, cat, prof] = await Promise.all([api.items(), api.catalog(), api.profile()]);
+      rememberFreshLinks(its.map((i) => i.image_url));
       setItems(its.map((i) => ({ ...i, rack: guessRack(i) })));
       setCatalog(cat);
       setProfile(prof);

@@ -35,10 +35,19 @@ class OutfitReq(_Capped):
     pieces: list[str] = []  # closet ids already on the table / mirror (FRONTEND_SPEC 8.4)
 
 
+def liked_ids(uid: str) -> set[str]:
+    """Closet pieces from favourite looks; the stylist gives them (and their styles) a small boost."""
+    if not hasattr(store, "list_looks"):
+        return set()
+    return {pc.get("refId") for look in store.list_looks(uid) if look.get("favorite")
+            for pc in look.get("pieces") or [] if pc.get("source") == "closet" and pc.get("refId")}
+
+
 @router.post("/api/ai/outfit")
 def ai_outfit(req: OutfitReq, uid: str = Depends(current_user)):
-    return ai.outfit(store.get_profile(uid), store.list_items(uid), req.occasion, req.place, req.season, req.travel,
-                     req.pieces)
+    profile = store.get_profile(uid)
+    return ai.outfit(profile, store.list_items(uid), req.occasion, req.place, req.season, req.travel,
+                     req.pieces, liked_ids(uid), budget_left(uid, profile))
 
 
 @router.post("/api/ai/weak-spots")

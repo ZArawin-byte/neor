@@ -18,12 +18,14 @@ from .ai_schemas import (
     RACK_IDS, CareDraft, CareResult, OutfitDraft, OutfitResult, PlacesDraft, PlacesResult, ShopDraft, ShopResult,
     TagDraft, TagResult, WeakDraft, WeakSpots, strict_schema,
 )
+from . import stylist
 from .context import care_kb, weather
 from .seed import CATALOG, CATALOG_BY_ID
 
 log = logging.getLogger("neor.ai")
 
 TEXT_CAP = 200
+VISION_MAX_TOKENS = 400  # the free tier allows 1000 output tokens/minute on the vision model
 HISTORY_TURNS = 8
 
 PERSONA = (
@@ -90,7 +92,7 @@ def _j(obj) -> str:
 
 
 def _chat_json(feature: str, system: str, user: str | list, schema: type[BaseModel], model: str | None = None,
-               temperature: float = 0.5, strict: bool = True) -> BaseModel:
+               temperature: float = 0.5, strict: bool = True, max_tokens: int = 2000) -> BaseModel:
     """One validated structured call. Retries once with the validation error, else raises AIFailure.
 
     strict=False is for the vision model, which loops in strict mode on image prompts; the reply is still
@@ -107,7 +109,7 @@ def _chat_json(feature: str, system: str, user: str | list, schema: type[BaseMod
         try:
             resp = client().chat.completions.create(
                 model=model, messages=messages, response_format=response_format,
-                temperature=temperature, max_tokens=2000, **_extra(model))
+                temperature=temperature, max_tokens=max_tokens, **_extra(model))
         except Exception as e:
             # Rate-limited on the big model: try the fast one once before giving up.
             if type(e).__name__ == "RateLimitError" and not swapped and model == config.GROQ_TEXT_MODEL:
@@ -212,6 +214,18 @@ def shortlist_catalog(profile: dict, message: str, budget_left: float | None, n:
     return sorted(prods, key=lambda p: (-score(p), p["price"], p["id"]))[:n]
 
 
+def owned_similar(products: list[dict], closet: list[dict]) -> dict[str, str]:
+    """catalog id -> 'you already own X': same category and same colour family, decided in Python."""
+    out = {}
+    for p in products:
+        fam = stylist.color_family(p.get("hex"))
+        twin = next((i for i in sorted(closet, key=lambda i: i["id"]) if i.get("category") == p["category"]
+                     and stylist.color_family(i.get("hex")) == fam), None)
+        if twin:
+            out[p["id"]] = f"You already own {twin.get('name', 'a similar piece')} ({p['category']}, {fam})."
+    return out
+
+
 def _dump(model: BaseModel) -> dict:
     return model.model_dump(exclude_none=True)
 
@@ -261,7 +275,8 @@ def tag_item(image: bytes, mime: str, profile: dict | None = None) -> dict:
         ]
         try:
             d = _chat_json("tag", "You are a precise fashion cataloguer.", prompt, TagDraft,
-                           model=config.GROQ_VISION_MODEL, temperature=0.2, strict=False)
+                           model=config.GROQ_VISION_MODEL, temperature=0.2, strict=False,
+                           max_tokens=VISION_MAX_TOKENS)
             return _dump(TagResult(
                 name=cap(d.name, 80), category=d.category, color=d.color, hex=d.hex if d.hex.startswith("#") else None,
                 material=_hedge(d.material), styles=list(dict.fromkeys(d.styles)), seasons=list(dict.fromkeys(d.seasons)),
@@ -274,65 +289,99 @@ def tag_item(image: bytes, mime: str, profile: dict | None = None) -> dict:
                            fallback_reason=reason))
 
 
-# ------------------------------------------------------------------ 2. outfit
+# ------------------------------------------------------------------ 2. outfit (Python scores, Groq chooses)
+
+SLOT_CATEGORY = {"top": "top", "bottom": "bottom", "onepiece": "dress", "layer": "outerwear", "shoes": "shoes",
+                 "extra": "accessory"}
+
+
+def suggest_missing(profile: dict, ctx: dict, slots: list[str], budget_left: float | None = None,
+                    why_prefix: str = "Nothing in your closet fills the {slot} slot") -> list[dict]:
+    """The best eligible catalog piece (modesty + budget respected) for each slot, with the scored reason."""
+    out = []
+    prods = eligible_catalog(profile, max_price=budget_left if budget_left and budget_left > 0 else None)
+    for slot in slots:
+        options = [p for p in prods if p["category"] == SLOT_CATEGORY.get(slot)]
+        if not options:
+            continue
+        scored = sorted(((stylist.score_item({**p, "id": p["id"]}, ctx), p) for p in options),
+                        key=lambda sp: (-sp[0][0], sp[1]["price"], sp[1]["id"]))
+        (score, why), best = scored[0]
+        reason = why_prefix.format(slot=slot, occasion=ctx["occasion"])
+        out.append({"catalog_id": best["id"], "why": f"{reason}; {best['name']} is {', '.join(why) or 'a solid basic'}."})
+    return out
+
+
+def plan_outfit(profile: dict, closet: list[dict], occasion: str, season: str, wx: dict | None,
+                pieces: list[str], liked: set[str], budget_left: float | None) -> tuple[dict, dict, list[dict]]:
+    ctx = stylist.context(profile, occasion, season, wx, liked)
+    for item in closet:  # learn from favourite looks: their styles count as the user's
+        if item["id"] in liked:
+            ctx["styles"] |= stylist._words(item.get("styles"))
+    plan = stylist.build(closet, ctx, pieces)
+    missing = suggest_missing(profile, ctx, plan["empty_slots"], budget_left)
+    if plan["outfits"] and len(missing) < 2:
+        best = {i["id"]: i for i in closet}
+        untagged = [stylist.slot_of(best[i]) for i in plan["outfits"][0]["ids"]
+                    if ctx["occasion"] not in (best[i].get("occasions") or []) and stylist.slot_of(best[i]) != "extra"]
+        missing += suggest_missing(profile, ctx, untagged[: 2 - len(missing)], budget_left,
+                                   "Nothing you own in the {slot} slot is tagged for {occasion}")
+    return ctx, plan, missing[:2]
+
 
 def outfit(profile: dict, closet: list[dict], occasion: str, place: str = "", season: str = "",
-           travel: str = "", pieces: list[str] | None = None) -> dict:
+           travel: str = "", pieces: list[str] | None = None, liked: set[str] | None = None,
+           budget_left: float | None = None) -> dict:
     closet = usable(closet)
-    occasion, place, season, travel = cap(occasion), cap(place), cap(season), cap(travel)
+    occasion, place, season, travel = cap(occasion) or "everyday", cap(place), cap(season), cap(travel)
     ids = {i["id"] for i in closet}
     pieces = [p for p in dict.fromkeys(pieces or []) if p in ids][:8]
     wx = weather.get_weather(travel or place) if (travel or place) else None
+    ctx, plan, missing = plan_outfit(profile, closet, occasion, season, wx, pieces, liked or set(), budget_left)
+    best = plan["outfits"][0] if plan["outfits"] else None
     reason = gate(profile)
-    if reason is None:
+    if reason is None and plan["candidates"]:
+        # Aliases keep real ids out of the model's hands: it can only answer with i1..iN from this list.
+        short = [c for slot in sorted(plan["candidates"]) for c in plan["candidates"][slot]]
+        alias = {f"i{n}": c["id"] for n, c in enumerate(short, 1)}
+        back = {v: k for k, v in alias.items()}
+        listing = [{"ref": back[c["id"]], "slot": stylist.slot_of(c), "name": c.get("name"), "color": c.get("color"),
+                    "material": c.get("material"), "score": c["_score"], "why": c["_why"]} for c in short]
+        ready = [{"option": n, "refs": [back[i] for i in o["ids"]], "colour": f"{o['harmony']['name']} {o['harmony']['score']}",
+                  "score": o["score"]} for n, o in enumerate(plan["outfits"], 1)]
         try:
             d = _chat_json("outfit", PERSONA, (
                 f"PROFILE: {_j(profile_brief(profile))}\n"
-                f"CLOSET: {_j(closet_brief(closet))}\n"
-                f"CATALOG: {_j(catalog_brief(eligible_catalog(profile)))}\n"
+                f"SHORTLIST (scored in Python; refs only): {_j(listing)}\n"
+                f"READY OUTFITS (complete and colour-checked): {_j(ready)}\n"
                 + (f"WEATHER (Open-Meteo, real): {weather.describe(wx)}\n" if wx else "")
-                + (f"MUST INCLUDE these closet ids (the user is already wearing them): {_j(pieces)}\n" if pieces else "")
-                + f"\nBuild one outfit for occasion '{occasion}'"
+                + (f"MUST INCLUDE refs (already worn): {_j([back[p] for p in pieces])}\n" if pieces else "")
+                + (f"SUGGESTED PURCHASES (only these catalog ids may go in missing): {_j(missing)}\n" if missing else "")
+                + f"\nOccasion '{occasion}'"
                 + (f", place or vibe '{place}'" if place else "")
                 + (f", season '{season}'" if season else "")
-                + (f", travelling to '{travel}' (consider climate and local dress norms)" if travel else "")
-                + ". Use closet ids first. Add at most 2 catalog ids to missing only for a real gap. "
-                "why is 2-3 sentences on colour, fit, weather and occasion. scent is a scent family. "
-                "cultural_note is empty unless travel or modesty matters."), OutfitDraft)
-            chosen = [i for i in d.closet_ids if i in ids]
-            chosen = pieces + [i for i in chosen if i not in pieces]
+                + (f", travelling to '{travel}' (consider local dress norms)" if travel else "")
+                + ". Pick one ready outfit, or refine it by swapping pieces from the shortlist. closet_ids are refs "
+                "like i3. why is 2-3 sentences built on the given reasons, colour and weather. scent is a scent "
+                "family. cultural_note is empty unless travel or modesty matters."), OutfitDraft)
+            chosen = [alias[r] for r in d.closet_ids if r in alias]
+            chosen = list(dict.fromkeys(pieces + chosen)) or (best["ids"] if best else [])
+            allowed = {m["catalog_id"] for m in missing}
             return _dump(OutfitResult(
-                title=d.title, vibe=d.vibe, closet_ids=chosen, why=d.why,
-                styling_tip=d.styling_tip, scent=d.scent, cultural_note=d.cultural_note, ai="groq", weather=wx,
-                missing=[m.model_dump() for m in d.missing if m.catalog_id in CATALOG_BY_ID][:2]))
+                title=d.title, vibe=d.vibe, closet_ids=chosen, why=d.why, styling_tip=d.styling_tip, scent=d.scent,
+                cultural_note=d.cultural_note, ai="groq", weather=wx,
+                missing=[m for m in missing if m["catalog_id"] in {x.catalog_id for x in d.missing} & allowed] or missing,
+                harmony=stylist.harmony_of([i.get("hex") for i in closet if i["id"] in chosen])))
         except AIFailure as e:
             reason = e.reason
-    return _outfit_rules(profile, closet, occasion or "everyday", season, wx, pieces, reason)
-
-
-def _outfit_rules(profile: dict, closet: list[dict], occasion: str, season: str, wx: dict | None,
-                  pieces: list[str], reason: str | None) -> dict:
-    picks, missing = list(pieces), []
-    worn = {i["category"] for i in closet if i["id"] in pieces}
-    layer = weather.is_cold(wx) or weather.is_wet(wx) or season in ("fall", "winter")
-    for cat in ("top", "bottom", "outerwear", "shoes"):
-        if cat in worn or (cat == "outerwear" and not layer):
-            continue
-        matches = sorted((i for i in closet if i.get("category") == cat and occasion in (i.get("occasions") or [])),
-                         key=lambda i: i["id"])
-        if matches:
-            picks.append(matches[0]["id"])
-        else:
-            prod = next((p for p in eligible_catalog(profile) if p["category"] == cat and occasion in p["occasions"]), None)
-            if prod:
-                missing.append({"catalog_id": prod["id"], "why": f"Nothing in your closet is tagged {cat} for {occasion}."})
-    why = "Pieces from your closet tagged for this occasion."
+    why = best["reasons"] if best else "Your closet can't make a complete outfit for this yet."
     if wx:
         why += f" Weather: {weather.describe(wx)}."
     return _dump(OutfitResult(
-        title=f"{occasion.title()} look", vibe=occasion, closet_ids=picks, why=why,
+        title=f"{occasion.title()} look", vibe=occasion, closet_ids=best["ids"] if best else [], why=why,
         styling_tip="Tuck, cuff or layer to make it yours.", missing=missing, ai="rules", weather=wx,
-        fallback_reason=reason))
+        fallback_reason=reason, harmony=best["harmony"] if best else None,
+        alternatives=[o["ids"] for o in plan["outfits"][1:]]))
 
 
 # ------------------------------------------------------------------ 3. weak spots
@@ -379,6 +428,7 @@ def shop_chat(profile: dict, closet: list[dict], history: list[dict], message: s
                for h in (history or [])[-HISTORY_TURNS:]]
     fit = any(w in message.lower() for w in FIT_WORDS)
     products = shortlist_catalog(profile, message, budget_left)
+    similar = owned_similar(products, closet)
     reason = gate(profile)
     if reason is None:
         try:
@@ -386,7 +436,8 @@ def shop_chat(profile: dict, closet: list[dict], history: list[dict], message: s
             d = _chat_json("shop", PERSONA, (
                 f"PROFILE: {_j(profile_brief(profile, fit=fit))}\n"
                 f"CLOSET: {_j(closet_brief(closet))}\n"
-                f"CATALOG: {_j(catalog_brief(products))}\n"
+                f"CATALOG (shortlisted in Python): {_j(catalog_brief(products))}\n"
+                f"FACTS (computed, true): {_j(similar) if similar else 'the user owns nothing similar to these'}\n"
                 f"BUDGET LEFT THIS MONTH: {budget_left if budget_left is not None else 'not set'}\n\n"
                 f"CONVERSATION:\n{convo}\nUSER: {message}\n\n"
                 "Reply in under 80 words. Recommend 0-3 catalog ids, each with why it fits and which closet ids it "
@@ -400,6 +451,7 @@ def shop_chat(profile: dict, closet: list[dict], history: list[dict], message: s
         except AIFailure as e:
             reason = e.reason
     words = [w for w in message.lower().split() if len(w) > 2]
+    products = [p for p in products if p["id"] not in similar]
     hits = [p for p in products
             if any(w in f"{p['name']} {p['category']} {' '.join(p['occasions'])}".lower() for w in words)]
     return _dump(ShopResult(

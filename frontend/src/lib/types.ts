@@ -93,6 +93,8 @@ export interface Look {
   harmony: string;
   occasion?: string;
   favorite: boolean;
+  /** 1-5 stars, set on the archive board. Missing = not rated yet. */
+  rating?: number;
   savedAt: string;
 }
 

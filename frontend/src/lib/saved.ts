@@ -48,6 +48,9 @@ export const saved = {
     write(LOOKS, [next, ...saved.looks()]);
     return next;
   },
+  rate(id: string, rating: number) {
+    write(LOOKS, saved.looks().map((l) => (l.id === id ? { ...l, rating } : l)));
+  },
   toggleFavorite(id: string) {
     write(LOOKS, saved.looks().map((l) => (l.id === id ? { ...l, favorite: !l.favorite } : l)));
   },

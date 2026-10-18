@@ -7,7 +7,7 @@ export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await getToken();
   const headers = new Headers(init.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);

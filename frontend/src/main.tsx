@@ -8,6 +8,7 @@ import Archive from "./pages/Archive";
 import Closet from "./pages/Closet";
 import Critique from "./pages/Critique";
 import Landing from "./pages/Landing";
+import Lazy from "./pages/Lazy";
 import Mirror from "./pages/Mirror";
 import Profile from "./pages/Profile";
 import Room from "./pages/Room";
@@ -34,6 +35,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/critique" element={<Inside><Critique /></Inside>} />
         <Route path="/archive" element={<Inside><Archive /></Inside>} />
         <Route path="/profile" element={<Inside><Profile /></Inside>} />
+        <Route path="/lazy" element={<Inside><Lazy /></Inside>} />
         {FEATURES.flatMap((f) => f.routes).map((r) => <Route key={r.path} path={r.path} element={r.element} />)}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

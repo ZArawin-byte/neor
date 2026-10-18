@@ -205,16 +205,134 @@ def list_orders(uid: str) -> list[dict]:
     return _load()["orders"].get(uid, [])
 
 
+# ---------------------------------------------------------------- bargain market price reports (souq)
+# Shared across users (that's the point: what other people paid at a shop), so they're keyed by
+# shop rather than by user. Each row: {id, user_id, data, image_path}.
+
+
+def souq_reports(shop_id: str) -> list[dict]:
+    if config.USE_SUPABASE:
+        return (sb().table("souq_reports").select("id,user_id,data,image_path").eq("shop_id", shop_id)
+                .order("created_at", desc=True).limit(500).execute().data)
+    rows = [r for r in _load().get("souq_reports", []) if r["data"].get("shop", {}).get("id") == shop_id]
+    return sorted(rows, key=lambda r: r["data"].get("created_at", ""), reverse=True)[:500]
+
+
+def souq_reports_recent(limit: int = 3000) -> list[dict]:
+    """The newest reports across every shop, for "what did people pay for this near me?"."""
+    if config.USE_SUPABASE:
+        return (sb().table("souq_reports").select("id,user_id,data,image_path")
+                .order("created_at", desc=True).limit(limit).execute().data)
+    rows = _load().get("souq_reports", [])
+    return sorted(rows, key=lambda r: r["data"].get("created_at", ""), reverse=True)[:limit]
+
+
+def souq_add_report(uid: str, data: dict, image: bytes | None = None) -> dict:
+    sid = data.get("submission_id")
+    if config.USE_SUPABASE:
+        # Same submission sent twice (double tap, retry) -> return the first one.
+        existing = (sb().table("souq_reports").select("id,user_id,data,image_path")
+                    .eq("user_id", uid).eq("submission_id", sid).execute().data)
+        if existing:
+            return existing[0]
+        path = _upload(uid, image, "jpg", "image/jpeg") if image else None
+        return sb().table("souq_reports").insert({
+            "user_id": uid, "shop_id": data["shop"]["id"], "submission_id": sid, "data": data, "image_path": path,
+        }).execute().data[0]
+    with _lock:
+        db = _load()
+        rows = db.setdefault("souq_reports", [])
+        for r in rows:
+            if r["user_id"] == uid and r["data"].get("submission_id") == sid:
+                return r
+        path = _local_upload(uid, image, "jpg") if image else None
+        row = {"id": str(uuid.uuid4()), "user_id": uid, "data": data, "image_path": path}
+        rows.append(row)
+        _save(db)
+    return row
+
+
+def souq_delete_report(uid: str, report_id: str) -> None:
+    """Only the person who shared a report can remove it."""
+    if config.USE_SUPABASE:
+        rows = sb().table("souq_reports").select("image_path").eq("id", report_id).eq("user_id", uid).execute().data
+        if rows and rows[0].get("image_path"):
+            sb().storage.from_(BUCKET).remove([rows[0]["image_path"]])
+        sb().table("souq_reports").delete().eq("id", report_id).eq("user_id", uid).execute()
+        return
+    with _lock:
+        db = _load()
+        db["souq_reports"] = [r for r in db.get("souq_reports", []) if not (r["id"] == report_id and r["user_id"] == uid)]
+        _save(db)
+
+
+# ---------------------------------------------------------------- lazy mode (morning outfit texts)
+# One subscription per user: phone, place, calendar link, send time. The calendar link is a
+# secret, so it never leaves the server (see lazy.public_sub).
+
+
+def lazy_get(uid: str) -> dict | None:
+    if config.USE_SUPABASE:
+        rows = sb().table("lazy_subscriptions").select("data").eq("user_id", uid).execute().data
+        return rows[0]["data"] if rows else None
+    return _load().get("lazy", {}).get(uid)
+
+
+def lazy_save(uid: str, data: dict) -> dict:
+    if config.USE_SUPABASE:
+        sb().table("lazy_subscriptions").upsert({"user_id": uid, "data": data}).execute()
+        return data
+    with _lock:
+        db = _load()
+        db.setdefault("lazy", {})[uid] = data
+        _save(db)
+    return data
+
+
+def lazy_delete(uid: str) -> None:
+    if config.USE_SUPABASE:
+        sb().table("lazy_subscriptions").delete().eq("user_id", uid).execute()
+        return
+    with _lock:
+        db = _load()
+        db.get("lazy", {}).pop(uid, None)
+        _save(db)
+
+
+def lazy_all() -> list[tuple[str, dict]]:
+    if config.USE_SUPABASE:
+        return [(r["user_id"], r["data"]) for r in sb().table("lazy_subscriptions").select("user_id,data").execute().data]
+    return list(_load().get("lazy", {}).items())
+
+
+def lazy_log(uid: str, entry: dict) -> None:
+    """Every text we send (or would have sent, without Twilio), newest first, last 30 per user."""
+    if config.USE_SUPABASE:
+        current = lazy_get(uid) or {}
+        current["outbox"] = ([entry] + current.get("outbox", []))[:30]
+        lazy_save(uid, current)
+        return
+    with _lock:
+        db = _load()
+        sub = db.setdefault("lazy", {}).get(uid)
+        if sub is not None:
+            sub["outbox"] = ([entry] + sub.get("outbox", []))[:30]
+            _save(db)
+
+
 def delete_everything(uid: str) -> None:
-    """'Forget me': wipes profile, closet, orders and photos."""
+    """'Forget me': wipes profile, closet, orders, price reports and photos."""
     if config.USE_SUPABASE:
         paths = [i["image_path"] for i in list_items(uid) if i.get("image_path") and not i["image_path"].startswith("http")]
         mirror = get_profile(uid).get("mirror_path")
         if mirror:
             paths.append(mirror)
+        paths += [r["image_path"] for r in sb().table("souq_reports").select("image_path").eq("user_id", uid).execute().data
+                  if r.get("image_path")]
         if paths:
             sb().storage.from_(BUCKET).remove(paths)
-        for table, col in (("closet_items", "user_id"), ("orders", "user_id"), ("profiles", "id")):
+        for table, col in (("closet_items", "user_id"), ("orders", "user_id"), ("souq_reports", "user_id"),
+                           ("lazy_subscriptions", "user_id"), ("profiles", "id")):
             sb().table(table).delete().eq(col, uid).execute()
         return
     import shutil
@@ -223,5 +341,7 @@ def delete_everything(uid: str) -> None:
         db = _load()
         for key in ("profiles", "items", "orders"):
             db[key].pop(uid, None)
+        db["souq_reports"] = [r for r in db.get("souq_reports", []) if r["user_id"] != uid]
+        db.get("lazy", {}).pop(uid, None)
         _save(db)
     shutil.rmtree(config.UPLOAD_DIR / uid, ignore_errors=True)

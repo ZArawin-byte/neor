@@ -10,6 +10,7 @@ const ROOMS: { to: string; label: string; icon: IconName }[] = [
   { to: "/window", label: "Window", icon: "window" },
   { to: "/critique", label: "Lion", icon: "paw" },
   { to: "/archive", label: "Archive", icon: "book" },
+  { to: "/lazy", label: "Lazy", icon: "phone" },
   { to: "/profile", label: "Profile", icon: "person" },
 ];
 

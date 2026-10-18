@@ -10,7 +10,7 @@ import { Sticker } from "./Sticker";
 type Step =
   | { kind: "pick" }
   | { kind: "working"; label: string; pct: number }
-  | { kind: "confirm"; blob: Blob; preview: string; meta: Partial<Item>; suggested: RackId; chosen: RackId; choosing: boolean };
+  | { kind: "confirm"; blob: Blob; preview: string; meta: Partial<Item>; suggested: RackId; chosen: RackId; choosing: boolean; unsure?: boolean };
 
 /**
  * Adding pieces: photos -> background removed in-browser -> backend tags each one ->
@@ -87,18 +87,25 @@ export function UploadSheet({ open, onClose, onAdded }: { open: boolean; onClose
     const { blob } = await cutOut(file, (pct) => setStep({ kind: "working", label: "Cutting it out of the background", pct }));
     setStep({ kind: "working", label: "Working out what it is", pct: 1 });
 
-    let meta: Partial<Item> = { name: file.name.replace(/\.\w+$/, "").replace(/[-_]/g, " ") };
+    // Phone file names ("WhatsApp Image 2026-...", "IMG_4021") are no use as a piece's name.
+    const fileName = file.name.replace(/\.\w+$/, "").replace(/[-_]/g, " ").trim();
+    const usefulName = /^(whatsapp|img|image|photo|dsc|pxl|screenshot|linked)\b/i.test(fileName) || /\d{4}/.test(fileName) ? "" : fileName;
+    let meta: Partial<Item> = { name: usefulName };
+    let recognised = false;
     if (!offline) {
       try {
-        const tags = await withTimeout(api.analyze(blob), ANALYZE_TIMEOUT);
-        meta = { ...tags };
+        const tags = await withTimeout(api.analyze(blob), ANALYZE_TIMEOUT) as Partial<Item> & { ai?: string; confidence?: number };
+        recognised = tags.ai !== "rules" && (tags.confidence ?? 1) > 0;
+        meta = { ...tags, name: tags.name && tags.name !== "New item" ? tags.name : usefulName };
         delete (meta as { ai?: string }).ai;
       } catch { /* tagger down or too slow: user picks the rack themselves */ }
     }
     meta = { ...meta, ...preset }; // the shop's own title beats the AI's guess
     if (!meta.hex || meta.hex === "#b9a68a") meta.hex = await dominantHex(blob);
     const suggested = guessRack(meta);
-    setStep({ kind: "confirm", blob, preview: URL.createObjectURL(blob), meta, suggested, chosen: suggested, choosing: false });
+    const known = recognised || !!preset.name || !!meta.name;
+    // Not recognised: ask, rather than quietly guessing a rack.
+    setStep({ kind: "confirm", blob, preview: URL.createObjectURL(blob), meta, suggested, chosen: suggested, choosing: !known, unsure: !known });
   }
 
   async function save() {
@@ -181,6 +188,7 @@ export function UploadSheet({ open, onClose, onAdded }: { open: boolean; onClose
               value={step.meta.name ?? ""}
               onChange={(e) => setStep({ ...step, meta: { ...step.meta, name: e.target.value } })}
               aria-label="Name"
+              placeholder="Name it, e.g. Wide-leg jeans"
             />
 
             {!step.choosing ? (
@@ -196,13 +204,13 @@ export function UploadSheet({ open, onClose, onAdded }: { open: boolean; onClose
               </>
             ) : (
               <>
-                <p className="verdict">Where should it hang?</p>
+                <p className="verdict">{step.unsure ? "We couldn't tell what this is. Where should it hang?" : "Where should it hang?"}</p>
                 <div className="rack-chips">
                   {RACKS.map((r) => (
                     <button key={r.id} className={`chip ${step.chosen === r.id ? "is-on" : ""}`}
                       onClick={() => setStep({ ...step, chosen: r.id })}>
                       {r.label}
-                      {r.id === step.suggested && <small> (suggested)</small>}
+                      {r.id === step.suggested && !step.unsure && <small> (suggested)</small>}
                     </button>
                   ))}
                 </div>

@@ -38,13 +38,13 @@ export const api = {
   items: () => call<Item[]>("/api/items"),
   analyze: (file: Blob) => {
     const fd = new FormData();
-    fd.append("file", file, "item.png");
+    fd.append("file", file, `item.${file.type === "image/webp" ? "webp" : file.type === "image/jpeg" ? "jpg" : "png"}`);
     return call<Partial<Item> & { ai: string }>("/api/items/analyze", { method: "POST", body: fd });
   },
   addItem: (meta: Partial<Item>, file?: Blob) => {
     const fd = new FormData();
     fd.append("meta", JSON.stringify(meta));
-    if (file) fd.append("file", file, "item.png");
+    if (file) fd.append("file", file, `item.${file.type === "image/webp" ? "webp" : file.type === "image/jpeg" ? "jpg" : "png"}`);
     return call<Item>("/api/items", { method: "POST", body: fd });
   },
   /** Reads a product page (or image link) server-side and returns its photo as a data URL. */

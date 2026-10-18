@@ -1,0 +1,88 @@
+/* ---------------------------------------------------------------- the notice: a woven label on the wall */
+
+.label-notice {
+  position: relative;
+  display: grid;
+  gap: 3px;
+  width: 210px;
+  padding: 16px 16px 14px;
+  background-color: #f7f2e8;
+  background-image: var(--grain);
+  color: var(--ink);
+  text-decoration: none;
+  rotate: -2deg;
+  border-radius: 2px;
+  outline: 1.5px dashed rgba(139, 98, 64, 0.55);
+  outline-offset: -7px;
+  box-shadow: 0 10px 18px -10px rgba(0, 0, 0, 0.5);
+  transition: rotate 0.25s, translate 0.25s;
+}
+.label-notice:hover { rotate: -0.5deg; translate: 0 -2px; }
+.label-notice strong { font: 400 20px/1.1 var(--display); }
+.label-notice span { font-size: 13.5px; line-height: 1.4; color: var(--ink-2); }
+.label-notice-kicker { font-size: 11px !important; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--oak-deep) !important; }
+.label-notice-cta { margin-top: 6px; font-weight: 700; color: var(--ink) !important; }
+
+/* ---------------------------------------------------------------- the page */
+
+.care-label {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 24px clamp(16px, 4vw, 32px) 64px;
+  font-family: var(--sans);
+}
+.care-label-back { font-size: 14px; color: var(--muted); text-decoration: none; }
+.care-label-back:hover { color: var(--ink); }
+.care-label header { margin: 28px 0 22px; }
+.care-label .kicker { margin: 0 0 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--oak-deep); }
+.care-label h1 { font: 400 clamp(32px, 4vw, 42px)/1.05 var(--display); margin: 0 0 10px; }
+.care-label header p:last-child { margin: 0; font-size: 16px; color: var(--ink-2); max-width: 520px; }
+
+.label-form { display: grid; gap: 10px; }
+.label-drop {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--linen) var(--grain);
+  box-shadow: inset 0 0 0 1.5px var(--line);
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 600;
+}
+.label-drop img { max-height: 260px; max-width: 100%; border-radius: 4px; }
+.label-drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.label-drop:focus-within { box-shadow: inset 0 0 0 2px var(--brass); }
+.label-form .btn { justify-self: start; }
+
+/* The result is drawn as a sewn-in satin label: off-white, stitched edge, folded top. */
+.woven {
+  position: relative;
+  margin-top: 26px;
+  padding: 30px 28px 24px;
+  background: #fbf8f1 var(--grain);
+  border-radius: 2px;
+  outline: 1.5px dashed rgba(29, 22, 17, 0.28);
+  outline-offset: -10px;
+  box-shadow: var(--shadow);
+}
+.woven::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 10px;
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--line);
+}
+.woven h2 { font: 400 20px var(--display); margin: 18px 0 8px; }
+.woven-engine { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--oak-deep); }
+.fibres { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 17px; text-transform: capitalize; }
+.fibres .pct { font: 700 22px var(--display); color: var(--walnut); }
+.rules { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.rules li { padding: 4px 10px; border-radius: 3px; font-size: 14px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--line); }
+.steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 15px; color: var(--ink-2); }
+.woven .why { font-size: 13px; color: var(--muted); margin: 10px 0 0; }
+.woven .saved { font-weight: 700; color: var(--teal); }
+.woven details { margin-top: 14px; font-size: 13px; color: var(--muted); }
+.woven pre { white-space: pre-wrap; font: 13px/1.5 var(--sans); background: var(--paper); padding: 10px; border-radius: 4px; }

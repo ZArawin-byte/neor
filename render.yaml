@@ -25,3 +25,20 @@ services:
         sync: false
       - key: DEMO_EMAIL
         sync: false
+      # Optional: each feature stays off (or falls back) while its key is blank.
+      - key: GOOGLE_VISION_API_KEY   # bargain market photo matching
+        sync: false
+      - key: SERPAPI_API_KEY         # bargain market product search
+        sync: false
+      - key: TWILIO_ACCOUNT_SID      # text notifications
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM
+        sync: false
+      - key: TEXTBELT_KEY
+        sync: false
+      - key: SMTP_USER               # email notifications
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false

@@ -3,7 +3,7 @@
  * (public/room/lion.webp, background removed), the zoo, and the video that opens on right-click.
  */
 export const MASCOT = {
-  name: "", // e.g. "Rajah" - left blank until we've confirmed the lion's real name
+  name: "Leon the Lion",
   species: "lion",
   zoo: "", // e.g. "Woodland Park Zoo"
   photo: "/mascot/lion.jpg",

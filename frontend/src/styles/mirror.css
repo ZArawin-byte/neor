@@ -144,3 +144,14 @@
 .tryon-tools { flex-wrap: nowrap; }
 .tool-name { min-width: 0; flex: 1; max-width: none; }
 .tryon-tools .icon-btn { flex: none; width: 32px; }
+
+/* Grid children grow with their content by default; the scrolling "finish it with" row
+   would otherwise widen the page on phones. */
+.mirror-layout > *, .analysis > * { min-width: 0; }
+.mirror-empty { padding: 24% 12%; }
+.mirror-empty .btn { white-space: normal; height: auto; min-height: 36px; padding: 6px 12px; text-align: center; }
+@media (max-width: 760px) {
+  .mirror-empty { padding: 20% 9%; font-size: 15px; }
+  .mirror-col { justify-items: center; }
+  .tryon-tools { max-width: 100%; }
+}

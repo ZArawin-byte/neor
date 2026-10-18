@@ -12,7 +12,7 @@ import "../styles/room.css";
  */
 const SPOTS: Record<SpotId, { to: string; title: string; blurb: string; at: [number, number]; side: "left" | "right" | "below" }> = {
   archive: { to: "/archive", title: "The archive", blurb: "Every outfit you have saved, sketched and pinned to the board.", at: [1104, 600], side: "below" },
-  profile: { to: "/profile", title: "Profile", blurb: "Age, fit, faith and style: what Neor should know about you.", at: [300, 150], side: "right" },
+  profile: { to: "/profile", title: "Profile", blurb: "Age, fit, faith and style: what neor should know about you.", at: [300, 150], side: "right" },
   lazy: { to: "/lazy", title: "Lazy mode", blurb: "Just input your Google Calendar and your location and you'll receive outfits based off the climate and events.", at: [470, 158], side: "right" },
   closet: { to: "/closet", title: "Closet", blurb: "Your creative space: everything you own, ready to mix.", at: [565, 330], side: "right" },
   window: { to: "/window", title: "Window", blurb: "A map of cafes and photo spots, with outfits to match each one.", at: [800, 596], side: "below" },
@@ -61,7 +61,7 @@ export default function Room() {
           </span>
         )}
       </div>
-      <span className="room-sign" aria-hidden="true"><span>Neor</span></span>
+      <span className="room-sign" aria-hidden="true"><span>neor</span></span>
       {lion.menu}
       <p className={`room-hint ${explored ? "is-quiet" : ""}`}>
         <span className="for-mouse">Hover over anything in the room. It all opens.</span>

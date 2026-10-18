@@ -216,7 +216,7 @@ export default function Window() {
           </div>
 
           <details className="logic">
-            <summary>How Neor picked this</summary>
+            <summary>How neor picked this</summary>
             <ol>
               <li>The backdrop's colours are tinted for {lightNote(light)}. Its average brightness comes out at {Math.round(bgL * 100)}/100.</li>
               <li>{mode === "pop"

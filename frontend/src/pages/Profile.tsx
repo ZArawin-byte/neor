@@ -109,7 +109,7 @@ export default function Profile() {
       if (offline) localStorage.setItem(LOCAL, JSON.stringify(toPatch(form)));
       else setProfile(await api.saveProfile(toPatch(form)));
       setDirty(false);
-      say(offline ? "Saved on this device. It will sync once the server is back." : "Saved. Neor will dress you with this in mind.");
+      say(offline ? "Saved on this device. It will sync once the server is back." : "Saved. neor will dress you with this in mind.");
     } catch {
       say("That didn't save. Try again in a moment.");
     } finally {
@@ -141,7 +141,7 @@ export default function Profile() {
   );
 
   return (
-    <PageFrame title="About you" kicker="So Neor dresses you, not an average person" className="profile-page">
+    <PageFrame title="About you" kicker="So neor dresses you, not an average person" className="profile-page">
       <div className="pf">
         <aside className="pf-side">
           <div className="profile-photo">
@@ -152,7 +152,7 @@ export default function Profile() {
           <p className="pf-stats">{items.length} pieces in your closet{profile.points ? ` · ${profile.points} points` : ""}</p>
           <div className="pf-privacy">
             <h3>How this is used</h3>
-            <p>Every field is optional. Neor uses these details only to choose and explain outfits for you. They're never shown to anyone else, and "Forget me" erases them.</p>
+            <p>Every field is optional. neor uses these details only to choose and explain outfits for you. They're never shown to anyone else, and "Forget me" erases them.</p>
           </div>
         </aside>
 
@@ -186,7 +186,7 @@ export default function Profile() {
             </div>
           </Section>
 
-          <Section title="Faith & dress guidelines" note="Neor will never suggest anything that breaks these, including things to buy.">
+          <Section title="Faith & dress guidelines" note="neor will never suggest anything that breaks these, including things to buy.">
             <div className="pf-grid">
               <label className="pf-field">
                 <span>Faith or tradition</span>
@@ -266,7 +266,7 @@ export default function Profile() {
             </div>
             <label className="pf-toggle">
               <input type="checkbox" checked={form.ai_consent} onChange={(e) => set("ai_consent", e.target.checked)} />
-              <span>Let Neor's AI look at my clothing photos to tag them</span>
+              <span>Let neor's AI look at my clothing photos to tag them</span>
             </label>
           </Section>
 

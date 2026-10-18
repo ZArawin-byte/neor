@@ -52,7 +52,7 @@ export function PageFrame({ title, kicker, actions, children, className = "" }: 
       </div>
       {offline && (
         <p className="offline-note">
-          We can't reach the Neor server, so this is a sample closet. Nothing you change will be saved.
+          We can't reach the neor server, so this is a sample closet. Nothing you change will be saved.
         </p>
       )}
       {children}

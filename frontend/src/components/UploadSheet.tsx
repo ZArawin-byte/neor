@@ -162,7 +162,7 @@ export function UploadSheet({ open, onClose, onAdded }: { open: boolean; onClose
                 value={link} onChange={(e) => setLink(e.target.value)} />
               <button className="btn sm" disabled={!link.trim() || offline}>Use its photo</button>
             </div>
-            <small>{offline ? "This needs the Neor server, which isn't reachable right now." : "We'll grab the product photo and its name."}</small>
+            <small>{offline ? "This needs the neor server, which isn't reachable right now." : "We'll grab the product photo and its name."}</small>
           </form>
         )}
 

@@ -114,7 +114,7 @@ export function LaundryBasket({ items, onReturn }: { items: Item[]; onReturn: (i
           Laundry basket <b>{items.length}</b>
         </span>
       </button>
-      <p className="basket-help">Drop things you're not wearing out. They stay yours; Neor just won't suggest them.</p>
+      <p className="basket-help">Drop things you're not wearing out. They stay yours; neor just won't suggest them.</p>
       {open && (
         <div className="basket-pop">
           {items.length === 0 ? <p>Empty.</p> : items.map((i) => (
@@ -169,7 +169,7 @@ export function Recommendations({ closet, catalog, table, offline }: {
     try {
       setAsked(await api.outfit({ occasion: occasion || "everyday", season, place: weather ? `${weather} weather` : "" }));
     } catch {
-      setAskError("Neor couldn't be reached. The suggestions below still work offline.");
+      setAskError("neor couldn't be reached. The suggestions below still work offline.");
     } finally {
       setAsking(false);
     }
@@ -183,7 +183,7 @@ export function Recommendations({ closet, catalog, table, offline }: {
   return (
     <section className="recs" aria-label="Recommendations">
       <div className="recs-head">
-        <h3>Neor suggests</h3>
+        <h3>neor suggests</h3>
         <button className="btn sm" onClick={ask} disabled={asking || offline}>
           <Icon name="spark" size={14} /> {asking ? "Thinking..." : "Ask for a full look"}
         </button>

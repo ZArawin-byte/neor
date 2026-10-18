@@ -67,9 +67,9 @@ export default function Critique() {
       <div className="critique-layout">
         <aside className="lion-col">
           <figure className="lion-portrait" onContextMenu={lion.onContextMenu}>
-            <img src={MASCOT.photo} alt={`${mascotTitle()}, the Neor mascot`} />
+            <img src={MASCOT.photo} alt={`${mascotTitle()}, the neor mascot`} />
             <figcaption>
-              <strong>{mascotTitle()}</strong>, the Neor mascot{mascotWhere()}.{" "}
+              <strong>{mascotTitle()}</strong>, the neor mascot{mascotWhere()}.{" "}
               <a href={MASCOT.montage} target="_blank" rel="noreferrer">Watch a montage ↗</a>
               {MASCOT.credit && (
                 <small>

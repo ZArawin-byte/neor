@@ -20,7 +20,7 @@ function PhonePreview({ morning, busy, onRefresh, canRefresh }: { morning: Morni
         <div className="lz-phone-notch" />
         <div className="lz-phone-head">
           <span className="lz-avatar">N</span>
-          <strong>Neor</strong>
+          <strong>neor</strong>
           <small>Text message · {morning ? new Date(morning.day + "T12:00").toLocaleDateString(undefined, { weekday: "long" }) : "tomorrow"}, 7:00</small>
         </div>
         <div className="lz-thread">
@@ -129,7 +129,7 @@ export default function Lazy() {
   return (
     <PageFrame title="Lazy mode" kicker="Get dressed without opening the app" className="lazy-page">
       <p className="lz-lede">
-        Give Neor your calendar and where you are. Every morning you get one text: the weather, what's on today, and what to wear from your own closet.
+        Give neor your calendar and where you are. Every morning you get one text: the weather, what's on today, and what to wear from your own closet.
       </p>
       {sms === "textbelt" && (
         <p className="offline-note">Texts go out through TextBelt's free tier: one text a day, which is your morning outfit. Test sends count toward it.</p>
@@ -206,7 +206,7 @@ export default function Lazy() {
                     <li>Scroll to <b>Integrate calendar</b> and copy <b>Secret address in iCal format</b>.</li>
                     <li>Paste it here.</li>
                   </ol>
-                  <p>Treat that link like a password. Neor keeps it on the server, only reads today's events, and never shows it again.</p>
+                  <p>Treat that link like a password. neor keeps it on the server, only reads today's events, and never shows it again.</p>
                 </details>
               </fieldset>
 

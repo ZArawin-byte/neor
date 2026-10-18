@@ -79,6 +79,9 @@ export const saved = {
     background(call("/api/looks", json("POST", { ...next, photo })));
     return next;
   },
+  rate(id: string, rating: number) {
+    write(LOOKS, saved.looks().map((l) => (l.id === id ? { ...l, rating } : l)));
+  },
   toggleFavorite(id: string) {
     const looks = read<Look[]>(LOOKS, []).map((l) => (l.id === id ? { ...l, favorite: !l.favorite } : l));
     write(LOOKS, looks);

@@ -3,9 +3,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from . import config
+from . import config, lazy, souq
+from .deps import current_user
 from .rate_limit import RateLimitMiddleware
 from .routers import ai_routes, bag, commerce, items, meta, profile, saved
+from .uploads import read_image
 
 app = FastAPI(title="neor API", description="Backend for neor - step into your closet.")
 # --- core lane middleware. Rate limits sit inside CORS so a 429 still reaches the browser readable.
@@ -29,3 +31,9 @@ app.include_router(saved.router)
 
 # --- AI lane routers ---
 app.include_router(ai_routes.router)
+
+# --- bargain market + lazy mode (Anna). souq: photo ID, offers, shops, shared price ledger.
+# lazy: morning outfit texts from weather + calendar; its scheduler runs inside this process.
+app.include_router(souq.router(current_user, read_image))
+app.include_router(lazy.router(current_user))
+lazy.start(app)

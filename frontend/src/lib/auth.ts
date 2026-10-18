@@ -25,6 +25,7 @@ export function initAuth(): Promise<void> {
 export const isDemo = () => demo;
 
 export async function getToken(): Promise<string | null> {
+  await initAuth();
   if (!client) return null;
   const { data } = await client.auth.getSession();
   return data.session?.access_token ?? null;

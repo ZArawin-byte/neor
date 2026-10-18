@@ -9,6 +9,7 @@ Trust guardrails (see CLAUDE.md):
 """
 import json
 import logging
+import re
 import time
 
 from pydantic import BaseModel, ValidationError
@@ -18,9 +19,9 @@ from .ai_schemas import (
     RACK_IDS, CareDraft, CareResult, OutfitDraft, OutfitResult, PlacesDraft, PlacesResult, ShopDraft, ShopResult,
     TagDraft, TagResult, WeakDraft, WeakSpots, strict_schema,
 )
-from . import stylist
+from . import insights, stylist
 from .context import care_kb, weather
-from .seed import CATALOG, CATALOG_BY_ID
+from .seed import CATALOG
 
 log = logging.getLogger("neor.ai")
 
@@ -384,38 +385,43 @@ def outfit(profile: dict, closet: list[dict], occasion: str, place: str = "", se
         alternatives=[o["ids"] for o in plan["outfits"][1:]]))
 
 
-# ------------------------------------------------------------------ 3. weak spots
+# ------------------------------------------------------------------ 3. weak spots (facts from insights.py)
 
-def _gap_facts(profile: dict, closet: list[dict]) -> tuple[list[dict], int]:
-    have = {i.get("category") for i in closet}
-    gaps = []
-    for cat, pid in (("outerwear", "p18"), ("shoes", "p09"), ("bag", "p21"), ("dress", "p05")):
-        if cat not in have and CATALOG_BY_ID[pid] in eligible_catalog(profile):
-            gaps.append({"key": f"empty-{cat}", "gap": f"No {cat}", "priority": "high", "unlocks": 0,
-                         "catalog_ids": [pid], "why": f"Your closet has no {cat} yet.",
-                         "evidence": f"0 {cat} items in the closet"})
-    score = max(0, 100 - 20 * len(gaps))
-    return gaps, score
+_NUM = re.compile(r"\d+(?:\.\d+)?")
+
+
+def _numbers_ok(text: str, facts_text: str) -> bool:
+    """The model may reword, but every number it writes must already be in the facts."""
+    allowed = set(_NUM.findall(facts_text))
+    return all(n in allowed for n in _NUM.findall(text))
 
 
 def weak_spots(profile: dict, closet: list[dict]) -> dict:
     closet = usable(closet)
-    gaps, score = _gap_facts(profile, closet)
-    summary = f"{len(closet)} pieces, {len(gaps)} gap{'s' if len(gaps) != 1 else ''} found."
+    facts = insights.analyse(profile, closet, eligible_catalog(profile))
+    gaps = facts["gaps"]
+    occ_ok = sum(1 for n in facts["occasions"].values() if n > 0)
+    summary = (f"{facts['pieces']} pieces cover {occ_ok} of {len(facts['occasions'])} occasions. "
+               + (f"Biggest gap: {gaps[0]['gap'].lower()}." if gaps else "No gaps worth buying for."))
+    extra = {"evidence": {k: facts[k] for k in ("occasions", "seasons", "categories", "neutrals", "accents",
+                                                "pieces", "score_basis")}}
     reason = gate(profile)
     if reason is None and gaps:
+        fact_text = _j({"summary": summary, **extra["evidence"], "gaps": gaps})
         try:
             d = _chat_json("weak_spots", PERSONA, (
                 f"PROFILE: {_j(profile_brief(profile))}\n"
-                f"FACTS (computed from the closet, do not change them): {_j(gaps)}\n\n"
-                "Write a short warm summary and, for each gap key, a one-sentence why. "
-                "Do not add numbers that are not in the facts."), WeakDraft, model=config.GROQ_FAST_MODEL)
-            text = {g.key: g.why for g in d.gaps}
+                f"FACTS (counted from the closet; do not change them): {fact_text}\n\n"
+                "Write a short warm summary in the lion's voice, and for each gap key a one-sentence why. "
+                "Only use numbers that appear in the facts."), WeakDraft, model=config.GROQ_FAST_MODEL)
+            text = {g.key: g.why for g in d.gaps if _numbers_ok(g.why, fact_text)}
             gaps = [{**g, "why": text.get(g["key"], g["why"])} for g in gaps]
-            return _dump(WeakSpots(summary=d.summary, score=score, gaps=gaps, ai="groq"))
+            summary = d.summary if _numbers_ok(d.summary, fact_text) else summary
+            return _dump(WeakSpots(summary=summary, score=facts["score"], gaps=gaps, ai="groq", **extra))
         except AIFailure as e:
             reason = e.reason
-    return _dump(WeakSpots(summary=summary, score=score, gaps=gaps, ai="rules", fallback_reason=reason))
+    return _dump(WeakSpots(summary=summary, score=facts["score"], gaps=gaps, ai="rules", fallback_reason=reason,
+                           **extra))
 
 
 # ------------------------------------------------------------------ 4. shopping chat

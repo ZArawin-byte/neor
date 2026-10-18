@@ -441,3 +441,66 @@ def test_shop_tells_the_model_what_you_already_own(client, fake):
     g = fake.load({"reply": "Skip these, you have a pair.", "picks": []})
     client.post("/api/ai/shop", json={"message": "white sneakers"})
     assert "You already own My white sneakers" in g.prompt_text()
+
+
+# ------------------------------------------------------------------ A4: critique from real counts
+
+def test_critique_numbers_trace_to_closet_counts(client):
+    from app import insights, stylist
+
+    items = starter(client)
+    out = client.post("/api/ai/weak-spots").json()
+    ev = out["evidence"]
+    assert ev["pieces"] == len(items) == 8
+    assert ev["categories"]["top"] == sum(i["category"] == "top" for i in items)
+    for occ, n in ev["occasions"].items():
+        assert n == stylist.count_complete(items, stylist.context({}, occ))
+    covered = sum(n > 0 for n in ev["occasions"].values()) / len(ev["occasions"])
+    seasons = sum(n > 0 for n in ev["seasons"].values()) / len(ev["seasons"])
+    balance = 1.0 if ev["neutrals"] >= 2 and ev["accents"] >= 1 else 0.5
+    assert out["score"] == round(100 * (0.6 * covered + 0.3 * seasons + 0.1 * balance))
+    for gap in out["gaps"]:
+        assert gap["key"] and gap["evidence"] and gap["catalog_ids"]
+        from app.seed import CATALOG_BY_ID
+
+        product = {**CATALOG_BY_ID[gap["catalog_ids"][0]], "id": "catalog:x"}
+        more = items + [product]
+        profile = {}
+        occs, seas = tuple(ev["occasions"]), tuple(ev["seasons"])
+        expect = (sum(insights.occasion_counts(more, profile, occs).values())
+                  + sum(insights.season_counts(more, profile, seas).values())
+                  - sum(ev["occasions"].values()) - sum(ev["seasons"].values()))
+        assert gap["unlocks"] == expect, gap["key"]
+
+
+def test_critique_on_an_empty_closet(client):
+    out = client.post("/api/ai/weak-spots").json()
+    assert out["score"] == 0 and out["evidence"]["pieces"] == 0
+    keys = {g["key"] for g in out["gaps"]}
+    assert {"empty-top", "empty-bottom", "empty-shoes"} <= keys
+    assert all(g["unlocks"] == 0 for g in out["gaps"])  # one piece alone can't complete an outfit
+
+
+def test_groq_cannot_change_critique_numbers(client, fake):
+    starter(client)
+    rules = client.post("/api/ai/weak-spots", headers={}).json()
+    first = rules["gaps"][0]["key"]
+    fake.load({"summary": "A lovely start - 97% perfect!", "gaps": [
+        {"key": first, "why": "This unlocks 4000 outfits."},
+        {"key": "invented-gap", "why": "Buy everything."}]})
+    out = client.post("/api/ai/weak-spots").json()
+    assert out["ai"] == "groq" and out["score"] == rules["score"]
+    assert [(g["key"], g["unlocks"], g["catalog_ids"]) for g in out["gaps"]] == \
+           [(g["key"], g["unlocks"], g["catalog_ids"]) for g in rules["gaps"]]
+    assert "97%" not in out["summary"] and "4000" not in out["gaps"][0]["why"]
+
+
+def test_groq_can_reword_with_real_numbers(client, fake):
+    starter(client)
+    rules = client.post("/api/ai/weak-spots").json()
+    g0 = rules["gaps"][0]
+    fake.load({"summary": "A tidy closet with room to grow.",
+               "gaps": [{"key": g0["key"], "why": f"Adding it gives you {g0['unlocks']} more outfits."}]})
+    out = client.post("/api/ai/weak-spots").json()
+    assert out["summary"] == "A tidy closet with room to grow."
+    assert out["gaps"][0]["why"] == f"Adding it gives you {g0['unlocks']} more outfits."

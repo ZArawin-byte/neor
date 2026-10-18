@@ -5,6 +5,7 @@ import {
 } from "@dnd-kit/core";
 import { useState, type ReactNode } from "react";
 import { assetUrl } from "../lib/api";
+import { fitPiece, type Body } from "../lib/body";
 import { dropPoint } from "../lib/dropPoint";
 import { RACK_BY_ID, slotOf } from "../lib/racks";
 import type { BoardPiece, WornPiece } from "../lib/types";
@@ -20,11 +21,11 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 /** Drop where the pointer is; keyboard drags have no pointer, so fall back to overlap. */
 const underPointer: CollisionDetection = (args) => (args.pointerCoordinates ? pointerWithin(args) : rectIntersection(args));
 
-function Garment({ snap }: { snap: BoardPiece["snap"] }) {
+function Garment({ snap, stretch }: { snap: BoardPiece["snap"]; stretch?: boolean }) {
   const src = assetUrl(snap.image_url);
   return src
     ? <img src={src} alt={snap.name} draggable={false} />
-    : <Silhouette shape={RACK_BY_ID[snap.rack].shape} hex={snap.hex} />;
+    : <Silhouette shape={RACK_BY_ID[snap.rack].shape} hex={snap.hex} stretch={stretch} />;
 }
 
 function Worn({ w, selected, onSelect }: { w: WornPiece; selected: boolean; onSelect: () => void }) {
@@ -36,16 +37,16 @@ function Worn({ w, selected, onSelect }: { w: WornPiece; selected: boolean; onSe
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={`worn ${selected ? "is-selected" : ""} ${isDragging ? "is-moving" : ""}`}
+      className={`worn ${w.h ? "is-fitted" : ""} ${selected ? "is-selected" : ""} ${isDragging ? "is-moving" : ""}`}
       style={{
-        left: `${w.x}%`, top: `${w.y}%`, width: `${w.w}%`, zIndex: w.z,
+        left: `${w.x}%`, top: `${w.y}%`, width: `${w.w}%`, height: w.h ? `${w.h}%` : undefined, zIndex: w.z,
         rotate: `${w.rot}deg`,
         translate: transform ? `calc(-50% + ${transform.x}px) calc(-50% + ${transform.y}px)` : "-50% -50%",
       }}
       onClick={(e) => { e.stopPropagation(); onSelect(); }}
       aria-label={`${w.snap.name} - select to resize or remove`}
     >
-      <Garment snap={w.snap} />
+      <Garment snap={w.snap} stretch={!!w.h} />
     </div>
   );
 }
@@ -75,8 +76,12 @@ function Glass({ children, onClick }: { children: ReactNode; onClick: () => void
   return <div ref={setNodeRef} className={`mirror-glass ${isOver ? "is-over" : ""}`} onClick={onClick}>{children}</div>;
 }
 
-export function TryOn({ photo, pieces, worn, setWorn, boardName, emptyMirror, tableFooter }: {
+export function TryOn({ photo, body, onFitPhoto, pieces, worn, setWorn, boardName, emptyMirror, tableFooter }: {
   photo: string | null;
+  /** Where the body is in the photo; when known, every piece is sized and placed to it. */
+  body: Body | null;
+  /** Crop and measure a photo uploaded before fitting existed. */
+  onFitPhoto: () => void;
   pieces: BoardPiece[];
   worn: WornPiece[];
   setWorn: (next: WornPiece[]) => void;
@@ -95,6 +100,12 @@ export function TryOn({ photo, pieces, worn, setWorn, boardName, emptyMirror, ta
 
   function wear(p: BoardPiece, x = 50, y?: number) {
     const slot = slotOf(p.snap.rack);
+    if (body) { // snap to the body, wherever it was dropped
+      const key = `${p.key}-${Date.now()}`;
+      setWorn([...worn, { key, snap: p.snap, ...fitPiece(p.snap, body), rot: 0, z: zFor(slot) }]);
+      setSelected(key);
+      return;
+    }
     // Rough body positions so a tap lands somewhere sensible: tops at the chest, shoes at the feet.
     const yBySlot: Record<string, number> = { top: 36, layer: 38, onepiece: 48, bottom: 64, shoes: 90, extra: 30 };
     const key = `${p.key}-${Date.now()}`;
@@ -122,6 +133,9 @@ export function TryOn({ photo, pieces, worn, setWorn, boardName, emptyMirror, ta
     }
   }
 
+  // Layers stack the way clothes do: trousers under tops under jackets, shoes and extras on top.
+  const zFor = (slot: string) => ({ bottom: 1, onepiece: 2, top: 3, layer: 4, shoes: 5, extra: 6 }[slot] ?? 3) * 10 + worn.length;
+  const fitAll = () => body && setWorn(worn.map((w) => ({ ...w, ...fitPiece(w.snap, body), rot: 0 })));
   const sel = worn.find((w) => w.key === selected);
   const change = (patch: Partial<WornPiece>) => sel && setWorn(worn.map((w) => (w.key === sel.key ? { ...w, ...patch } : w)));
 
@@ -143,8 +157,8 @@ export function TryOn({ photo, pieces, worn, setWorn, boardName, emptyMirror, ta
             {sel ? (
               <>
                 <span className="tool-name">{sel.snap.name}</span>
-                <button className="icon-btn" onClick={() => change({ w: clamp(sel.w / 1.12, 8, 95) })} aria-label="Smaller">−</button>
-                <button className="icon-btn" onClick={() => change({ w: clamp(sel.w * 1.12, 8, 95) })} aria-label="Bigger">+</button>
+                <button className="icon-btn" onClick={() => change({ w: clamp(sel.w / 1.12, 8, 95), h: sel.h && sel.h / 1.12 })} aria-label="Smaller">−</button>
+                <button className="icon-btn" onClick={() => change({ w: clamp(sel.w * 1.12, 8, 95), h: sel.h && sel.h * 1.12 })} aria-label="Bigger">+</button>
                 <button className="icon-btn" onClick={() => change({ rot: sel.rot - 5 })} aria-label="Rotate left">↺</button>
                 <button className="icon-btn" onClick={() => change({ rot: sel.rot + 5 })} aria-label="Rotate right">↻</button>
                 <button className="icon-btn" onClick={() => change({ z: top() })} aria-label="Bring to front" title="Bring to front">⇡</button>
@@ -157,6 +171,9 @@ export function TryOn({ photo, pieces, worn, setWorn, boardName, emptyMirror, ta
                 {worn.length ? "Tap a piece on you to resize, turn or remove it." : "Drag pieces from your table onto yourself, or tap one to try it on."}
               </span>
             )}
+            {photo && !sel && (body
+              ? worn.length > 0 && <button className="btn ghost sm" onClick={fitAll}>Fit to me</button>
+              : <button className="btn ghost sm" onClick={onFitPhoto}>Crop &amp; fit to my photo</button>)}
             {worn.length > 0 && !sel && <button className="btn ghost sm" onClick={() => setWorn([])}>Take it all off</button>}
           </div>
         </div>

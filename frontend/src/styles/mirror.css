@@ -155,3 +155,7 @@
   .mirror-col { justify-items: center; }
   .tryon-tools { max-width: 100%; }
 }
+
+/* fitted to the body: the drawing fills the box the body measurements gave it */
+.worn.is-fitted svg { height: 100%; }
+.worn.is-fitted img { height: 100%; object-fit: contain; }

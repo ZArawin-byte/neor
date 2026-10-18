@@ -1,8 +1,8 @@
 """Every AI-backed route: photo tagging, outfits, weak spots, shopping chat, care, places. Owner: AI lane."""
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, field_validator
 
-from .. import ai, store
+from .. import ai, store, vision
 from ..context import places
 from ..budget import budget_left
 from ..deps import current_user
@@ -25,6 +25,18 @@ class _Capped(BaseModel):
 async def analyze_item(file: UploadFile = File(...), uid: str = Depends(current_user)):
     data, _, ctype = await read_image(file)
     return ai.tag_item(data, ctype, store.get_profile(uid))
+
+
+@router.post("/api/items/care-label")
+async def read_care_label(file: UploadFile = File(...), item_id: str | None = Form(default=None),
+                          uid: str = Depends(current_user)):
+    """Read a care label photo: fibres, care symbols and care steps. Saved on the item when it's yours."""
+    data, _, ctype = await read_image(file)
+    result = vision.read_label(data, ctype, store.get_profile(uid))
+    if item_id and result["text"]:
+        saved = store.update_item(uid, item_id, {"care_label": result["text"], "fibers": result["fiber_composition"]})
+        result["saved_to_item"] = bool(saved)
+    return result
 
 
 class OutfitReq(_Capped):

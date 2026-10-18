@@ -72,6 +72,8 @@ export interface WornPiece {
   x: number;
   y: number;
   w: number;
+  /** Height in % of the mirror when a drawn garment is stretched to fit the body; absent = natural shape. */
+  h?: number;
   rot: number;
   z: number;
 }

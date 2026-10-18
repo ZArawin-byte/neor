@@ -19,12 +19,12 @@ export const PATHS: Record<Shape, { body: string; detail?: string }> = {
   sock: { body: "M38 8 L62 8 L62 56 L85 70 Q95 79 86 89 L80 91 L50 85 Q38 81 38 66 Z", detail: "M38 16 L62 16 M38 22 L62 22" },
 };
 
-export function Silhouette({ shape, hex, className }: { shape: Shape; hex: string; className?: string }) {
+export function Silhouette({ shape, hex, className, stretch }: { shape: Shape; hex: string; className?: string; stretch?: boolean }) {
   const { body, detail } = PATHS[shape];
   const edge = mix(hex, "#1b1511", 0.45);
   const id = `sh-${shape}-${hex.replace("#", "")}`;
   return (
-    <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
+    <svg viewBox="0 0 100 100" className={className} aria-hidden="true" preserveAspectRatio={stretch ? "none" : undefined}>
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor={mix(hex, "#ffffff", 0.18)} />

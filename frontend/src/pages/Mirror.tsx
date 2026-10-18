@@ -6,6 +6,7 @@ import { Sticker } from "../components/Sticker";
 import { toSnap } from "../components/Studio";
 import { TryOn } from "../components/TryOn";
 import { api, assetUrl } from "../lib/api";
+import { fitPiece, prepareMirrorPhoto, saveBody, savedBody, type Body } from "../lib/body";
 import { useCloset } from "../lib/closet";
 import { harmonyOf, pairScore } from "../lib/color";
 import { slotOf } from "../lib/racks";
@@ -62,6 +63,8 @@ export default function Mirror() {
 
   const [photo, setPhoto] = useState<string | null>(assetUrl(profile.mirror_url ?? null));
   const [uploading, setUploading] = useState(false);
+  const [uploadStep, setUploadStep] = useState("");
+  const [body, setBody] = useState<Body | null>(savedBody);
   const [occasion, setOccasion] = useState("everyday");
   const [read, setRead] = useState<OutfitResult | null>(null);
   const [reading, setReading] = useState(false);
@@ -86,20 +89,37 @@ export default function Mirror() {
       .map(({ p }) => p);
   }, [catalog, pieces]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function onPhoto(f: File) {
+  /** Crop the person out, find their body, then upload the cropped photo. */
+  async function onPhoto(f: Blob) {
     setUploading(true);
     try {
-      if (offline) setPhoto(URL.createObjectURL(f));
+      setUploadStep("Cutting you out of the background…");
+      const { blob, body: found } = await prepareMirrorPhoto(f);
+      setUploadStep("Uploading…");
+      if (offline) setPhoto(URL.createObjectURL(blob));
       else {
-        const prof = await api.uploadMirror(f);
+        const prof = await api.uploadMirror(blob);
         setProfile(prof);
         setPhoto(assetUrl(prof.mirror_url ?? null));
       }
+      saveBody(found);
+      setBody(found);
+      // anything already on you is refitted to the new photo
+      setWorn(worn.map((w) => ({ ...w, ...fitPiece(w.snap, found), rot: 0 })));
+      if (found.source === "outline") say("Couldn't see your shoulders and hips clearly, so clothes are fitted to your outline. A straight-on photo works best.");
     } catch {
-      say("That photo didn't upload. Try a JPG or PNG under 8MB.");
+      say("That photo didn't work. Try a full-length JPG or PNG under 8MB.");
     } finally {
       setUploading(false);
+      setUploadStep("");
     }
+  }
+
+  /** For a photo uploaded before cropping existed: run it through the same steps. */
+  async function fitExisting() {
+    if (!photo) return;
+    try { onPhoto(await (await fetch(photo)).blob()); }
+    catch { say("Couldn't read the current photo. Upload it again instead."); }
   }
 
   async function askNeor() {
@@ -136,6 +156,8 @@ export default function Mirror() {
         onChange={(e) => { const f = e.target.files?.[0]; if (f) onPhoto(f); e.target.value = ""; }} />
       <TryOn
         photo={photo}
+        body={body}
+        onFitPhoto={fitExisting}
         pieces={pieces}
         worn={worn}
         setWorn={setWorn}
@@ -144,7 +166,7 @@ export default function Mirror() {
           <div className="mirror-empty">
             <p>Stand back and take one full-length photo, facing the camera. It stays private to you.</p>
             <button className="btn sm" onClick={(e) => { e.stopPropagation(); file.current?.click(); }} disabled={uploading}>
-              <Icon name="upload" size={14} /> {uploading ? "Uploading…" : "Upload a photo of yourself"}
+              <Icon name="upload" size={14} /> {uploading ? uploadStep || "Working…" : "Upload a photo of yourself"}
             </button>
           </div>
         }
@@ -156,7 +178,7 @@ export default function Mirror() {
                 <Link to="/closet" className="link-back">Edit on the table <Icon name="next" size={14} /></Link>
                 {photo && (
                   <button className="link-back" onClick={() => file.current?.click()} disabled={uploading}>
-                    <Icon name="upload" size={14} /> {uploading ? "Uploading…" : "Change my photo"}
+                    <Icon name="upload" size={14} /> {uploading ? uploadStep || "Working…" : "Change my photo"}
                   </button>
                 )}
               </div>

@@ -487,3 +487,4 @@
   .recs { padding: 14px 16px 16px; }
   .rec-row { padding-top: 4px; }
 }
+.recs-shop-head { margin: 22px 0 6px; font-family: var(--serif, Georgia, serif); font-size: 19px; font-weight: 500; }

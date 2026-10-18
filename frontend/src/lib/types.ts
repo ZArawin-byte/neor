@@ -55,6 +55,8 @@ export interface PieceSnapshot {
   price?: number;
   brand?: string;
   rotation?: number;
+  /** a real listing's page, for "go to site" */
+  link?: string;
 }
 
 export interface BoardPiece {

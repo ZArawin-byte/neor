@@ -8,6 +8,7 @@ import { completeTheTable, fromItem, fromProduct, type Piece } from "../lib/styl
 import type { BoardPiece, Item, OutfitResult, Product } from "../lib/types";
 import { Icon } from "./Icon";
 import { Sticker } from "./Sticker";
+import { ShopShelf, type ShopPick } from "../features/shop/ShopShelf";
 
 export type DragData =
   | { kind: "piece"; piece: Piece } // from the closet grid or the recommendations
@@ -15,6 +16,7 @@ export type DragData =
 
 export const toSnap = (p: Piece): BoardPiece["snap"] => ({
   name: p.name, hex: p.hex, rack: p.rack, image_url: p.image_url, price: p.price, brand: p.brand, rotation: p.rotation,
+  ...(p.link ? { link: p.link } : {}),
 });
 
 // ---------------------------------------------------------------- draggable sticker
@@ -61,7 +63,9 @@ function PlacedPiece({ p, onRemove }: { p: BoardPiece; onRemove: () => void }) {
       <div {...listeners} {...attributes}>
         <Sticker id={p.key} name={p.snap.name} hex={p.snap.hex} rack={p.snap.rack} image={p.snap.image_url} size={118} tilt={false} turn={p.snap.rotation} />
       </div>
-      {p.source === "market" && <span className="price-tag">${p.snap.price}</span>}
+      {p.source === "market" && (p.snap.link
+        ? <a className="price-tag" href={p.snap.link} target="_blank" rel="noopener noreferrer" onPointerDown={(e) => e.stopPropagation()}>Buy · ${p.snap.price ?? "?"} ↗</a>
+        : <span className="price-tag">${p.snap.price}</span>)}
       <button className="placed-x" onClick={onRemove} aria-label={`Take ${p.snap.name} off the table`}><Icon name="x" size={12} /></button>
     </div>
   );
@@ -149,6 +153,7 @@ export function Recommendations({ closet, catalog, table, offline }: {
   const [asked, setAsked] = useState<OutfitResult | null>(null);
   const [asking, setAsking] = useState(false);
   const [askError, setAskError] = useState("");
+  const [shopLive, setShopLive] = useState<boolean | null>(null); // null until the first live search answers
 
   const keep = (p: Piece) =>
     (!occasion || !p.occasions?.length || p.occasions.includes(occasion)) &&
@@ -161,7 +166,12 @@ export function Recommendations({ closet, catalog, table, offline }: {
   ].filter(keep), [closet, catalog, source, occasion, season, weather]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onTable: Piece[] = table.map((t) => ({ source: t.source, id: t.refId, name: t.snap.name, hex: t.snap.hex, rack: t.snap.rack }));
-  const local = completeTheTable(onTable, candidates);
+  // With live shopping working, the "to buy" side is real listings; the sample catalog only says what kind of piece to look for.
+  const realShop = shopLive !== false && !offline && source !== "closet";
+  const local = completeTheTable(onTable, realShop ? candidates.filter((p) => p.source !== "market") : candidates);
+  const shopPicks: ShopPick[] = realShop
+    ? completeTheTable(onTable, catalog.map(fromProduct).filter(keep), 4).map(({ piece, reason }) => ({ query: piece.name, base: piece, reason }))
+    : [];
 
   async function ask() {
     setAsking(true);
@@ -235,7 +245,7 @@ export function Recommendations({ closet, catalog, table, offline }: {
           : "Good places to start:"}
       </p>
       <div className="rec-row">
-        {local.length === 0 && <p className="muted">Nothing matches these filters. Loosen one?</p>}
+        {local.length === 0 && !shopPicks.length && <p className="muted">Nothing matches these filters. Loosen one?</p>}
         {local.map(({ piece, reason }) => (
           <div key={`${piece.source}:${piece.id}`} className="rec">
             <DraggablePiece id={`rec:${piece.source}:${piece.id}`} piece={piece} size={84}
@@ -244,6 +254,13 @@ export function Recommendations({ closet, catalog, table, offline }: {
           </div>
         ))}
       </div>
+
+      {shopPicks.length > 0 && (
+        <>
+          <h4 className="recs-shop-head">Real pieces to buy</h4>
+          <ShopShelf picks={shopPicks} onStatus={(ok) => setShopLive((was) => was === true ? true : ok)} />
+        </>
+      )}
     </section>
   );
 }

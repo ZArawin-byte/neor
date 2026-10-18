@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { assetUrl } from "../lib/api";
 import { RACK_BY_ID, type RackId } from "../lib/racks";
 import { Silhouette } from "./Silhouette";
@@ -26,14 +27,16 @@ interface Props {
 /** A die-cut sticker: the cut-out photo (or a drawn silhouette) with a white border and a soft drop shadow. */
 export function Sticker({ id, name, hex, rack, image, size = 120, tilt = true, dim, className = "", turn }: Props) {
   const src = assetUrl(image);
+  // A photo that won't load (an expired or deleted link) falls back to the drawn shape, never a broken-image icon.
+  const [failed, setFailed] = useState<string | null>(null);
   return (
     <div
       className={`sticker ${dim ? "is-dim" : ""} ${className}`}
       style={{ width: size, height: size, rotate: tilt ? `${tiltFor(id)}deg` : undefined }}
       title={name}
     >
-      {src ? (
-        <img src={src} alt={name} draggable={false} loading="lazy" style={turn ? { rotate: `${turn}deg` } : undefined} />
+      {src && failed !== src ? (
+        <img src={src} alt={name} draggable={false} loading="lazy" onError={() => setFailed(src)} style={turn ? { rotate: `${turn}deg` } : undefined} />
       ) : (
         <Silhouette shape={RACK_BY_ID[rack].shape} hex={hex} />
       )}

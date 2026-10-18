@@ -23,8 +23,25 @@ export async function call<T>(path: string, init: RequestInit = {}): Promise<T> 
 
 export const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) });
 
+/**
+ * Closet photos are private: Supabase hands out signed links that expire after an hour. Boards,
+ * the mirror and the archive keep a copy of the link they were given, so once it expires the photo
+ * breaks. The file path inside the link never changes, so remember the newest link per path and
+ * swap stale ones for it.
+ */
+const freshLinks = new Map<string, string>();
+const signedPath = (u: string) => u.match(/\/storage\/v1\/object\/sign\/([^?]+)/)?.[1];
+export function rememberFreshLinks(urls: (string | null | undefined)[]) {
+  for (const u of urls) { const p = u && signedPath(u); if (p) freshLinks.set(p, u!); }
+}
+
 /** Local uploads come back as "/uploads/..." - prefix them when the API lives elsewhere. */
-export const assetUrl = (u?: string | null) => (u && u.startsWith("/") ? `${API}${u}` : u ?? null);
+export const assetUrl = (u?: string | null) => {
+  if (!u) return null;
+  if (u.startsWith("/")) return `${API}${u}`;
+  const p = signedPath(u);
+  return (p && freshLinks.get(p)) || u;
+};
 
 export const api = {
   profile: () => call<Profile>("/api/profile"),

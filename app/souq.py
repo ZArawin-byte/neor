@@ -20,7 +20,7 @@ from decimal import Decimal
 from urllib.parse import parse_qs, unquote, urlparse
 
 import httpx
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from . import config, store
@@ -370,6 +370,44 @@ def public_report(row, uid):
             "photo_url": store.image_url(row.get("image_path")), "availability": "Past purchase; current stock unverified"}
 
 
+# ---------------------------------------------------------------- shop the look
+
+# Product photos from Google Shopping. Only these hosts may go through the photo proxy, so it
+# can't be used to fetch anything else.
+PHOTO_HOST = re.compile(r"^encrypted-tbn\d\.gstatic\.com$")
+
+
+def shop_results(raw, n):
+    """Real, new listings with a photo, as the closet's "to buy" suggestions use them."""
+    out, seen = [], set()
+    for o in parse_offers(raw):
+        # the same product often comes back once per shop selling it; show it once
+        same = (re.sub(r"\W+", " ", o["title"].casefold()).strip(), o["price"])
+        if not o["image"] or o["used"] or same in seen or o["image"] in seen:
+            continue
+        seen.update((same, o["image"]))
+        out.append({"id": hashlib.sha256(o["url"].encode()).hexdigest()[:12], "title": o["title"], "seller": o["seller"],
+                    "url": o["url"], "price": o["price"], "value": o["value"], "image": o["image"]})
+        if len(out) == n:
+            break
+    return out
+
+
+async def fetch_photo(url):
+    p = urlparse(url)
+    if p.scheme != "https" or not PHOTO_HOST.match(p.hostname or "") or p.username or p.password:
+        raise HTTPException(400, "That photo can't be loaded through neor.")
+    try:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
+            r = await client.get(url)
+    except httpx.HTTPError:
+        raise HTTPException(502, "The shop photo didn't load.") from None
+    kind = r.headers.get("content-type", "").split(";")[0]
+    if r.status_code != 200 or kind not in ("image/jpeg", "image/png", "image/webp", "image/gif") or len(r.content) > 3_000_000:
+        raise HTTPException(502, "The shop photo didn't load.")
+    return r.content, kind
+
+
 def router(current_user, read_image):
     routes = APIRouter(prefix="/api/souq", tags=["souq"], dependencies=[Depends(current_user)])
 
@@ -540,5 +578,17 @@ def router(current_user, read_image):
     def remove_report(report_id: uuid.UUID, uid: str = Depends(current_user)):
         store.souq_delete_report(uid, str(report_id))
         return {"ok": True}
+
+    @routes.get("/shop")
+    async def shop(q: str = Query(min_length=2, max_length=120), n: int = Query(8, ge=1, le=20), uid: str = Depends(current_user)):
+        """Real products for a suggestion like "camel wool coat": photo, price, shop and its link."""
+        throttle(uid)
+        return {"query": q, "results": shop_results(await search(Search(query=q), "google_shopping"), n)}
+
+    @routes.get("/photo")
+    async def photo(u: str = Query(max_length=2000)):
+        """Product photos for in-browser background removal: Google's image host doesn't allow that directly."""
+        data, kind = await fetch_photo(u)
+        return Response(data, media_type=kind, headers={"Cache-Control": "private, max-age=86400"})
 
     return routes

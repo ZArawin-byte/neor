@@ -12,7 +12,8 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 MAX_UPLOAD = 8 * 1024 * 1024
 MAX_SIDE = 2048
 IMAGE_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
-_FORMATS = {"JPEG": ("jpg", "image/jpeg"), "PNG": ("png", "image/png"), "WEBP": ("webp", "image/webp")}
+_FORMATS = {"JPEG": ("jpg", "image/jpeg"), "PNG": ("png", "image/png"), "WEBP": ("webp", "image/webp"),
+            "MPO": ("jpg", "image/jpeg")}  # iPhone photos: a JPEG with an extra depth/preview frame
 
 
 def clean_image(data: bytes) -> tuple[bytes, str, str]:
@@ -32,7 +33,7 @@ def clean_image(data: bytes) -> tuple[bytes, str, str]:
     img.thumbnail((MAX_SIDE, MAX_SIDE))
     ext, ctype = _FORMATS[fmt]
     out = io.BytesIO()
-    if fmt == "JPEG":
+    if fmt in ("JPEG", "MPO"):  # MPO is saved as a plain JPEG: first frame only, no metadata
         img.convert("RGB").save(out, "JPEG", quality=90, optimize=True)
     elif fmt == "PNG":
         img.save(out, "PNG", optimize=True)  # keeps the transparent background of cut-outs

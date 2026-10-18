@@ -29,11 +29,11 @@ The frontend reads the response shapes in `frontend/src/lib/types.ts` and `front
 
 | Lane | Person | Owns |
 |---|---|---|
-| AI | Yarexzi (`be/ai`) | `app/ai.py`, `app/ai_schemas.py`, `app/stylist.py`, `app/insights.py`, `app/context/*` (weather, places, care knowledge), `app/vision.py`, `app/routers/ai_routes.py`, `tests/test_ai*.py`, `scripts/ai_*.py`, `docs/AI.md`, `frontend/src/features/care-label/` |
-| Core | Zahra (`be/core`) | `app/store.py`, `app/schemas.py`, `app/uploads.py`, `app/budget.py`, `app/payments.py`, `app/importer.py`, `app/routers/{meta,profile,items,commerce,saved}.py`, `supabase/`, `scripts/seed_demo.py`, `render.yaml`, `README.md`, `docs/TRUST.md`, `tests/test_core*.py`, `frontend/src/lib/saved.ts`, `frontend/src/features/bag/` |
+| AI | Zahra (`be/ai`) | `app/ai.py`, `app/ai_schemas.py`, `app/stylist.py`, `app/insights.py`, `app/context/*` (weather, places, care knowledge), `app/vision.py`, `app/routers/ai_routes.py`, `tests/test_ai*.py`, `scripts/ai_*.py`, `docs/AI.md`, `frontend/src/features/care-label/` |
+| Core | Yarexzi (`be/core`) | `app/store.py`, `app/schemas.py`, `app/uploads.py`, `app/budget.py`, `app/payments.py`, `app/importer.py`, `app/routers/{meta,profile,items,commerce,saved}.py`, `supabase/`, `scripts/seed_demo.py`, `render.yaml`, `README.md`, `docs/TRUST.md`, `tests/test_core*.py`, `frontend/src/lib/saved.ts`, `frontend/src/features/bag/` |
 
 Shared files: edit only your own marked section, and keep the change small.
-- `app/main.py`: only the `include_router` lines under your lane's comment.
+- `app/main.py`: only the `include_router` lines under your lane's comment. The core lane may also add app-wide middleware there, such as rate limits matched by URL path, but never by editing AI-lane routers.
 - `app/config.py`, `.env.example`, `requirements.txt`: add lines only under your lane's section.
 - `frontend/src/features/index.ts`: one line per feature.
 

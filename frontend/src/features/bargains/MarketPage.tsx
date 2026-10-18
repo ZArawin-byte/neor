@@ -99,8 +99,7 @@ function PlacePicker({ place, onPick, onClose }: { place: Place | null; onPick: 
  * and every local purchase (red) dotted along it, so the range is visibly earned.
  */
 function PriceScale({ v, online, paid }: { v: Verdict; online: number[]; paid: number[] }) {
-  const all = [v.open_at, v.walk_away, ...online, ...paid];
-  const lo = Math.min(...all) * 0.92, hi = Math.max(...all) * 1.04;
+  const lo = v.open_at * 0.7, hi = v.walk_away * 1.35;
   const at = (x: number) => `${Math.max(0, Math.min(100, ((x - lo) / (hi - lo)) * 100))}%`;
   const c = v.currency;
   return (
@@ -114,9 +113,9 @@ function PriceScale({ v, online, paid }: { v: Verdict; online: number[]; paid: n
         {paid.map((x, i) => <i key={`p${i}`} className="dot paid" style={{ left: at(x) }} />)}
       </div>
       <div className="mk-scale-marks">
-        <span style={{ left: at(v.open_at) }}><b>{money(v.open_at, c)}</b>open</span>
-        <span style={{ left: at((v.low + v.high) / 2) }} className="is-key"><b>{money(v.low, c)}–{money(v.high, c)}</b>aim for</span>
-        <span style={{ left: at(v.walk_away) }}><b>{money(v.walk_away, c)}</b>walk away</span>
+        <span><b>{money(v.open_at, c)}</b>open with</span>
+        <span className="is-key"><b>{money(v.low, c)}–{money(v.high, c)}</b>aim for</span>
+        <span><b>{money(v.walk_away, c)}</b>walk away above</span>
       </div>
     </div>
   );
@@ -153,6 +152,8 @@ export default function MarketPage() {
   const [openStore, setOpenStore] = useState<string | null>(null);
   const [, tick] = useState(0);
   const resultRef = useRef<HTMLDivElement>(null);
+  const placeRef = useRef(place); // read at search time, so a place picked mid-search still counts
+  placeRef.current = place;
 
   useEffect(() => {
     isSignedIn().then(setSignedIn);
@@ -197,7 +198,7 @@ export default function MarketPage() {
     setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     findStores(query);
     try {
-      const res = await market.estimate(query, country, place);
+      const res = await market.estimate(query, country, placeRef.current);
       setEst(res); setPaid(res.paid); setLiveAt(Date.now());
     } catch (e) { setEst(null); setEstError(errorText(e, "Pricing isn't answering right now. Try again in a moment.")); }
     finally { setEstBusy(false); }
@@ -205,6 +206,7 @@ export default function MarketPage() {
 
   // ---------- 3. where can you get one?
   async function findStores(query: string) {
+    const place = placeRef.current;
     if (!place) return;
     setStoresBusy(true); setStoresNote("");
     try {
@@ -214,6 +216,9 @@ export default function MarketPage() {
     } catch (e) { setStores([]); setStoresNote(errorText(e, "The shop search is busy. Try again in a moment.")); }
     finally { setStoresBusy(false); }
   }
+
+  // picked or changed the place after checking? redo the price and the shops for the new place
+  useEffect(() => { if (checked && place) check(checked); }, [place?.lat, place?.lon]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------- live: refresh what people paid every 30s while results are open
   useEffect(() => {

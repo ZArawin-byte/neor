@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>neor · privacy</title>
+<style>
+  :root { --ink: #1d1611; --ink-2: #3b2f25; --muted: #74675b; --paper: #f5eee2; --line: rgba(29, 22, 17, 0.14); --oak-deep: #8b6240; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/1.6 "Figtree", system-ui, sans-serif; }
+  main { max-width: 680px; margin: 0 auto; padding: 48px 20px 72px; }
+  h1, h2 { font-family: "Libre Caslon Text", "Iowan Old Style", Georgia, serif; font-weight: 400; line-height: 1.15; }
+  h1 { font-size: 40px; margin: 0 0 8px; }
+  h2 { font-size: 23px; margin: 36px 0 8px; }
+  .kicker { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--oak-deep); margin: 0 0 8px; }
+  .muted { color: var(--muted); }
+  ul { padding-left: 20px; }
+  li { margin: 4px 0; }
+  a { color: inherit; text-underline-offset: 3px; }
+  footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <p class="kicker">neor</p>
+  <h1>Privacy</h1>
+  <p class="muted">Last updated 18 October 2026. neor is a student project built for DubHacks 2026.</p>
+
+  <h2>What neor stores</h2>
+  <ul>
+    <li><strong>Your account:</strong> the name, email address and profile photo Google shares when you sign in with Google. We never see your Google password.</li>
+    <li><strong>Your closet:</strong> the clothes you add and their details, and the photos you upload, including an optional full-length mirror photo.</li>
+    <li><strong>Your preferences, if you choose to give them:</strong> styles, colours, dress guidelines, sizes, a monthly budget and similar. Every one of these is optional.</li>
+    <li><strong>What you save:</strong> outfit boards, saved looks, your bag and your order history.</li>
+  </ul>
+  <p>Photos are stored privately, and the location data and camera details inside photo files are removed when you upload.</p>
+
+  <h2>Payments</h2>
+  <p>Checkout in neor is a <strong>simulation</strong>. No money moves and no real order is placed. Only Visa test card numbers are accepted, and we never store a card number, expiry date or security code.</p>
+
+  <h2>AI features</h2>
+  <p>Outfit suggestions and closet tips are generated with Groq. We send only what a suggestion needs, such as the details of your clothes and your style preferences, and never your name or email. If you turn AI off in your profile, neor uses simple built-in rules instead. Every suggestion says whether AI or the rules produced it.</p>
+
+  <h2>Who can see your data</h2>
+  <p>Only you. Each person's data is kept separate in our database (Supabase), and we don't sell or share it with anyone. Service providers process it only to run neor: Supabase (storage and sign-in), Groq (AI suggestions) and Google (sign-in).</p>
+
+  <h2>Deleting your data</h2>
+  <p>In your profile, <strong>Forget me</strong> permanently deletes your closet, photos, preferences, saved looks, bag, orders and account.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about your data: <a href="mailto:simpletransaction8@gmail.com">simpletransaction8@gmail.com</a></p>
+
+  <footer><a href="/">Back to neor</a></footer>
+</main>
+</body>
+</html>

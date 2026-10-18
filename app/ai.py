@@ -18,6 +18,7 @@ from .ai_schemas import (
     RACK_IDS, CareDraft, CareResult, OutfitDraft, OutfitResult, PlacesDraft, PlacesResult, ShopDraft, ShopResult,
     TagDraft, TagResult, WeakDraft, WeakSpots, strict_schema,
 )
+from .context import care_kb, weather
 from .seed import CATALOG, CATALOG_BY_ID
 
 log = logging.getLogger("neor.ai")
@@ -276,48 +277,62 @@ def tag_item(image: bytes, mime: str, profile: dict | None = None) -> dict:
 # ------------------------------------------------------------------ 2. outfit
 
 def outfit(profile: dict, closet: list[dict], occasion: str, place: str = "", season: str = "",
-           travel: str = "") -> dict:
+           travel: str = "", pieces: list[str] | None = None) -> dict:
     closet = usable(closet)
     occasion, place, season, travel = cap(occasion), cap(place), cap(season), cap(travel)
+    ids = {i["id"] for i in closet}
+    pieces = [p for p in dict.fromkeys(pieces or []) if p in ids][:8]
+    wx = weather.get_weather(travel or place) if (travel or place) else None
     reason = gate(profile)
     if reason is None:
-        ids = {i["id"] for i in closet}
         try:
             d = _chat_json("outfit", PERSONA, (
                 f"PROFILE: {_j(profile_brief(profile))}\n"
                 f"CLOSET: {_j(closet_brief(closet))}\n"
-                f"CATALOG: {_j(catalog_brief(eligible_catalog(profile)))}\n\n"
-                f"Build one outfit for occasion '{occasion}'"
+                f"CATALOG: {_j(catalog_brief(eligible_catalog(profile)))}\n"
+                + (f"WEATHER (Open-Meteo, real): {weather.describe(wx)}\n" if wx else "")
+                + (f"MUST INCLUDE these closet ids (the user is already wearing them): {_j(pieces)}\n" if pieces else "")
+                + f"\nBuild one outfit for occasion '{occasion}'"
                 + (f", place or vibe '{place}'" if place else "")
                 + (f", season '{season}'" if season else "")
                 + (f", travelling to '{travel}' (consider climate and local dress norms)" if travel else "")
                 + ". Use closet ids first. Add at most 2 catalog ids to missing only for a real gap. "
-                "why is 2-3 sentences on colour, fit and occasion. scent is a scent family. "
+                "why is 2-3 sentences on colour, fit, weather and occasion. scent is a scent family. "
                 "cultural_note is empty unless travel or modesty matters."), OutfitDraft)
+            chosen = [i for i in d.closet_ids if i in ids]
+            chosen = pieces + [i for i in chosen if i not in pieces]
             return _dump(OutfitResult(
-                title=d.title, vibe=d.vibe, closet_ids=[i for i in d.closet_ids if i in ids], why=d.why,
-                styling_tip=d.styling_tip, scent=d.scent, cultural_note=d.cultural_note, ai="groq",
+                title=d.title, vibe=d.vibe, closet_ids=chosen, why=d.why,
+                styling_tip=d.styling_tip, scent=d.scent, cultural_note=d.cultural_note, ai="groq", weather=wx,
                 missing=[m.model_dump() for m in d.missing if m.catalog_id in CATALOG_BY_ID][:2]))
         except AIFailure as e:
             reason = e.reason
-    return _outfit_rules(profile, closet, occasion or "everyday", reason)
+    return _outfit_rules(profile, closet, occasion or "everyday", season, wx, pieces, reason)
 
 
-def _outfit_rules(profile: dict, closet: list[dict], occasion: str, reason: str | None) -> dict:
-    picks, missing = [], []
+def _outfit_rules(profile: dict, closet: list[dict], occasion: str, season: str, wx: dict | None,
+                  pieces: list[str], reason: str | None) -> dict:
+    picks, missing = list(pieces), []
+    worn = {i["category"] for i in closet if i["id"] in pieces}
+    layer = weather.is_cold(wx) or weather.is_wet(wx) or season in ("fall", "winter")
     for cat in ("top", "bottom", "outerwear", "shoes"):
+        if cat in worn or (cat == "outerwear" and not layer):
+            continue
         matches = sorted((i for i in closet if i.get("category") == cat and occasion in (i.get("occasions") or [])),
                          key=lambda i: i["id"])
         if matches:
             picks.append(matches[0]["id"])
-        elif cat != "outerwear":
+        else:
             prod = next((p for p in eligible_catalog(profile) if p["category"] == cat and occasion in p["occasions"]), None)
             if prod:
                 missing.append({"catalog_id": prod["id"], "why": f"Nothing in your closet is tagged {cat} for {occasion}."})
+    why = "Pieces from your closet tagged for this occasion."
+    if wx:
+        why += f" Weather: {weather.describe(wx)}."
     return _dump(OutfitResult(
-        title=f"{occasion.title()} look", vibe=occasion, closet_ids=picks,
-        why="Pieces from your closet tagged for this occasion.", styling_tip="Tuck, cuff or layer to make it yours.",
-        missing=missing, ai="rules", fallback_reason=reason))
+        title=f"{occasion.title()} look", vibe=occasion, closet_ids=picks, why=why,
+        styling_tip="Tuck, cuff or layer to make it yours.", missing=missing, ai="rules", weather=wx,
+        fallback_reason=reason))
 
 
 # ------------------------------------------------------------------ 3. weak spots
@@ -394,25 +409,42 @@ def shop_chat(profile: dict, closet: list[dict], history: list[dict], message: s
 
 # ------------------------------------------------------------------ 5. quality tier + care
 
-def care(item: dict, profile: dict | None = None) -> dict:
+GENERIC_CARE = ["Check the care label first.", "Wash cold, inside out.", "Air dry flat when possible.",
+                "Store knits folded and tailoring on a wide hanger."]
+
+
+def care(item: dict, profile: dict | None = None, owned: bool = False) -> dict:
+    """Facts first: the care label (if read), then the fabric knowledge base, then the model's wording."""
+    fibers = [f["fiber"] for f in item.get("fibers") or [] if f.get("fiber")] or care_kb.fibers_in(item.get("material", ""))
+    kb_steps = care_kb.care_steps(fibers)
+    basis = "care label" if item.get("care_label") or item.get("fibers") else "material" if fibers else "none"
     facts = {k: item.get(k) for k in ("name", "category", "material", "color", "price", "tier") if item.get(k)}
+    if item.get("care_label"):
+        facts["care_label"] = cap(item["care_label"], 600)
+    extra = {"tier_basis": "estimate from material", "care_basis": basis} if owned else {"care_basis": basis}
     reason = gate(profile or {})
     if reason is None:
         try:
             d = _chat_json("care", PERSONA, (
-                f"ITEM: {_j(facts)}\n\nExplain this garment's quality and how to care for it. "
-                "care_steps: 4-6 steps (wash temperature, drying, ironing, storage). sustainability: general care "
-                "advice only, no claims about the brand."), CareDraft, model=config.GROQ_FAST_MODEL, temperature=0.3)
-            return _dump(CareResult(**d.model_dump(), ai="groq"))
+                f"ITEM: {_j(facts)}\n"
+                f"FABRIC FACTS (knowledge base, authoritative): {_j(care_kb.profile(fibers))}\n"
+                f"CARE STEPS (knowledge base, authoritative): {_j(kb_steps)}\n\n"
+                "Explain this garment's quality and how to care for it. If care steps were given, keep their meaning "
+                "and only reword them; never contradict the care label. sustainability: general care advice only, "
+                "no claims about the brand."), CareDraft, model=config.GROQ_FAST_MODEL, temperature=0.3)
+            out = d.model_dump()
+            if kb_steps:
+                out["care_steps"] = kb_steps  # deterministic steps win over the model's wording
+            return _dump(CareResult(**out, ai="groq", **extra))
         except AIFailure as e:
             reason = e.reason
     return _dump(CareResult(
         tier=item.get("tier", "B"), tier_reason="Estimated from the material only.",
-        material_explainer=item.get("material") or "Unknown material.",
-        care_steps=["Check the care label first.", "Wash cold, inside out.", "Air dry flat when possible.",
-                    "Store knits folded and tailoring on a wide hanger."],
+        material_explainer=care_kb.explain(fibers) or item.get("material") or "Unknown material.",
+        care_steps=kb_steps or GENERIC_CARE,
         longevity="Several years with gentle care.", cost_per_wear_tip="Price divided by the times you wear it.",
-        sustainability="Washing less often and colder makes clothes last longer.", ai="rules", fallback_reason=reason))
+        sustainability="Washing less often and colder makes clothes last longer.", ai="rules", fallback_reason=reason,
+        **extra))
 
 
 # ------------------------------------------------------------------ 6. places (real OSM candidates, AI picks)
@@ -426,7 +458,8 @@ def places(city: str, vibe: str, candidates: list[dict], profile: dict, center: 
             d = _chat_json("places", PERSONA, (
                 f"CITY: {city}\nVIBE: {vibe}\nPROFILE: {_j(profile_brief(profile))}\n"
                 f"REAL PLACES (OpenStreetMap): {_j([{k: c[k] for k in ('id', 'name', 'kind')} for c in candidates[:40]])}\n\n"
-                "Pick the 4 best spots for this vibe. Only use ids given."), PlacesDraft, model=config.GROQ_FAST_MODEL)
+                "Pick the 4 best spots for this vibe. Only use ids given."), PlacesDraft, model=config.GROQ_FAST_MODEL,
+                temperature=0)
             picks = [{**by_id[p.id], **p.model_dump()} for p in d.picks if p.id in by_id][:4]
             return _dump(PlacesResult(intro=d.intro, picks=picks, center=center, ai="groq"))
         except AIFailure as e:

@@ -2,10 +2,23 @@
 import json
 from types import SimpleNamespace
 
+import httpx
 import pytest
 
 from app import ai, config
+from app.context import places, weather
 from tests.conftest import make_image
+
+REAL_GET_WEATHER = weather.get_weather  # kept before the autouse stub replaces it
+SUNNY = {"temp_c": 8.0, "precip_prob": 70, "wind_kmh": 6.0, "condition": "light rain", "source": "open-meteo",
+         "fetched_at": "2026-10-18T07:00:00+00:00", "place": "Gas Works Park, Washington, US"}
+
+
+@pytest.fixture(autouse=True)
+def offline(monkeypatch):
+    """No test may touch the network: weather is stubbed and the places cache starts empty."""
+    monkeypatch.setattr(weather, "get_weather", lambda place, date=None: None)
+    places._cache.clear()
 
 
 class FakeGroq:
@@ -212,3 +225,123 @@ def test_rate_limit_switches_to_fast_model(client, fake):
     g = fake.load(RateLimitError("429"), outfit_reply([items[0]["id"]]))
     out = client.post("/api/ai/outfit", json={"occasion": "uni"}).json()
     assert out["ai"] == "groq" and g.calls[1]["model"] == config.GROQ_FAST_MODEL
+
+
+# ------------------------------------------------------------------ A2: real context data
+
+def test_outfit_returns_real_weather_and_layers_up(client, monkeypatch):
+    items = starter(client)
+    seen = []
+    monkeypatch.setattr(weather, "get_weather", lambda place, date=None: seen.append(place) or SUNNY)
+    out = client.post("/api/ai/outfit", json={"occasion": "everyday", "place": "Gas Works Park, Seattle"}).json()
+    assert seen == ["Gas Works Park, Seattle"] and out["weather"]["temp_c"] == 8.0
+    cats = {i["id"]: i["category"] for i in items}
+    assert "outerwear" in {cats[i] for i in out["closet_ids"]}  # cold + rain -> a layer
+    assert "8.0°C" in out["why"]
+
+
+def test_weather_goes_into_the_prompt(client, fake, monkeypatch):
+    items = starter(client)
+    monkeypatch.setattr(weather, "get_weather", lambda place, date=None: SUNNY)
+    g = fake.load(outfit_reply([items[0]["id"]]))
+    out = client.post("/api/ai/outfit", json={"occasion": "uni", "travel": "Seattle"}).json()
+    assert "light rain" in g.prompt_text() and out["weather"]["source"] == "open-meteo"
+
+
+def test_pieces_are_kept_and_unknown_pieces_dropped(client, fake):
+    items = starter(client)
+    g = fake.load(outfit_reply([items[1]["id"]]))
+    out = client.post("/api/ai/outfit", json={"occasion": "uni", "pieces": [items[3]["id"], "ghost"]}).json()
+    assert out["closet_ids"][0] == items[3]["id"] and "ghost" not in g.prompt_text()
+
+
+def test_get_weather_parses_open_meteo(monkeypatch):
+    def handler(req):
+        if "geocoding" in req.url.host:
+            return httpx.Response(200, json={"results": [{"name": "Seattle", "admin1": "Washington",
+                                                          "country_code": "US", "latitude": 47.6, "longitude": -122.3}]})
+        return httpx.Response(200, json={"current": {"time": "2026-10-18T01:00", "temperature_2m": 9.44,
+                                                     "weather_code": 61, "wind_speed_10m": 12.0},
+                                         "hourly": {"time": ["2026-10-18T01:00"], "precipitation_probability": [80]}})
+
+    real = httpx.Client
+    monkeypatch.setattr(weather.httpx, "Client", lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    weather._cache.clear()
+    w = REAL_GET_WEATHER("Seattle")
+    assert w["temp_c"] == 9.4 and w["precip_prob"] == 80 and w["condition"] == "light rain" and weather.is_wet(w)
+    assert REAL_GET_WEATHER("hot weather") is None and REAL_GET_WEATHER("wearing: a red scarf") is None
+    weather._cache.clear()
+
+
+def _osm(handler_overpass):
+    def handler(req):
+        if "nominatim" in req.url.host:
+            return httpx.Response(200, json=[{"lat": "47.65", "lon": "-122.30"}])
+        return handler_overpass(req)
+    return handler
+
+
+def _patch_places(monkeypatch, handler):
+    real = httpx.AsyncClient
+    monkeypatch.setattr(places.httpx, "AsyncClient",
+                        lambda **kw: real(transport=httpx.MockTransport(_osm(handler)), **kw))
+
+
+ELEMENTS = [
+    {"type": "node", "id": 9, "lat": 47.6, "lon": -122.3, "tags": {"name": "Zed Cafe", "amenity": "cafe",
+                                                                   "website": "https://zed.example", "opening_hours": "Mo-Su 07:00-18:00"}},
+    {"type": "node", "id": 3, "lat": 47.6, "lon": -122.3, "tags": {"name": "Second Life Thrift", "shop": "second_hand"}},
+    {"type": "way", "id": 5, "center": {"lat": 47.6, "lon": -122.3}, "tags": {"name": "Gas Works Park", "leisure": "park",
+                                                                            "wikimedia_commons": "File:GasWorks.jpg"}},
+    {"type": "node", "id": 1, "lat": 47.6, "lon": -122.3, "tags": {"name": "Allegro", "amenity": "cafe"}},
+]
+
+
+def test_places_falls_through_mirrors_sorts_and_passes_tags(client, monkeypatch):
+    calls = []
+
+    def overpass(req):
+        calls.append(req.url.host)
+        if req.url.host == "overpass-api.de":
+            return httpx.Response(504)
+        assert "second_hand" in httpx.QueryParams(req.content.decode())["data"]
+        return httpx.Response(200, json={"elements": list(reversed(ELEMENTS))})
+
+    _patch_places(monkeypatch, overpass)
+    first = client.post("/api/ai/places", json={"city": "Seattle"}).json()
+    second = client.post("/api/ai/places", json={"city": "Seattle"}).json()
+    assert calls == ["overpass-api.de", "overpass.kumi.systems"]  # second call came from the cache
+    assert first == second
+    assert [p["name"] for p in first["picks"]] == ["Allegro", "Zed Cafe", "Gas Works Park", "Second Life Thrift"]
+    zed = first["picks"][1]
+    assert zed["website"] == "https://zed.example" and zed["opening_hours"].startswith("Mo-Su")
+    assert first["picks"][2]["wikimedia_commons"] == "File:GasWorks.jpg"
+
+
+def test_places_all_mirrors_down_gives_reason(client, monkeypatch):
+    _patch_places(monkeypatch, lambda req: httpx.Response(500))
+    out = client.post("/api/ai/places", json={"city": "Seattle"}).json()
+    assert out["picks"] == [] and "busy" in out["reason"] and out["center"] == [47.65, -122.30]
+
+
+def test_places_nominatim_down_is_503(client, monkeypatch):
+    def boom(req):
+        raise httpx.ConnectError("down")
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(places.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(boom), **kw))
+    r = client.post("/api/ai/places", json={"city": "Seattle"})
+    assert r.status_code == 503 and r.json()["detail"] == "Places search is unavailable right now"
+
+
+def test_care_uses_knowledge_base_and_marks_owned_estimates(client):
+    out = client.post("/api/ai/care", json={"catalog_id": "p02"}).json()  # 80% wool, 20% cashmere
+    assert any("never wring" in s.lower() for s in out["care_steps"]) and "tier_basis" not in out
+    item = client.post("/api/items", data={"meta": '{"name": "Linen shirt", "category": "top", "material": "linen"}'}).json()
+    mine = client.post("/api/ai/care", json={"item_id": item["id"]}).json()
+    assert mine["tier_basis"] == "estimate from material" and "linen" in mine["material_explainer"].lower()
+
+
+def test_analyze_rules_path_still_returns_rack_and_confidence(client):
+    out = client.post("/api/items/analyze", files={"file": ("a.jpg", make_image(), "image/jpeg")}).json()
+    assert out["rack"] == "tshirts" and out["confidence"] == 0.0 and out["material"].startswith("unknown")

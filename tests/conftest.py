@@ -2,7 +2,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app import config, store
+from app import config, rate_limit, store
 
 
 @pytest.fixture
@@ -12,6 +12,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "UPLOAD_DIR", tmp_path / "uploads")
     (tmp_path / "uploads").mkdir()
     monkeypatch.setattr(store, "_DB_FILE", tmp_path / "local_db.json")
+    rate_limit.reset()
     from app.main import app
 
     return TestClient(app)

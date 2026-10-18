@@ -1,0 +1,27 @@
+# Render blueprint for the NEor API: Dashboard -> New -> Blueprint -> pick this repo.
+# Production needs Supabase: Render's disk is wiped on every deploy, so demo-mode JSON storage won't last.
+services:
+  - type: web
+    name: neor-api
+    runtime: python
+    plan: free            # sleeps after ~15 min idle: open /api/health a minute before the demo
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.15"
+      - key: FRONTEND_ORIGINS
+        value: https://neor-closet.web.app,https://neor-closet.firebaseapp.com,http://localhost:5173
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY   # server only, never sent to the browser
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: PERCEPTRON_API_KEY
+        sync: false
+      - key: DEMO_EMAIL
+        sync: false

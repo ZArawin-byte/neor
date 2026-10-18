@@ -99,3 +99,32 @@ def test_png_cutout_keeps_transparency_and_big_images_shrink(client):
                        files={"file": ("cut.png", raw, "image/png")}).json()
     img = Image.open(config.UPLOAD_DIR / item["image_path"])
     assert img.mode == "RGBA" and max(img.size) == 2048
+
+
+# ------------------------------------------------------------------ guardrails
+
+def test_checkout_is_rate_limited_and_429_is_readable(client):
+    card = {"number": "5555555555554444", "exp": "12/30", "cvc": "123", "name": "x"}
+    codes = [client.post("/api/checkout", json={"product_ids": ["p01"], "card": card}).status_code for _ in range(6)]
+    assert codes[:5] == [402] * 5 and codes[5] == 429
+    assert "try again" in client.post("/api/checkout", json={}).json()["detail"]
+
+
+def test_ai_routes_are_limited_per_user_without_touching_their_router(client, as_user):
+    client.post("/api/items/starter")
+    codes = [client.post("/api/ai/weak-spots").status_code for _ in range(21)]
+    assert codes.count(429) == 1
+    # Another sign-in token is a different bucket.
+    assert client.post("/api/ai/weak-spots", headers={"Authorization": "Bearer someone-else"}).status_code == 200
+
+
+def test_health_reports_booleans_only(client):
+    body = client.get("/api/health").json()
+    assert set(body) == {"ok", "supabase", "groq", "perceptron"} and all(isinstance(v, bool) for v in body.values())
+
+
+def test_429_keeps_cors_headers_so_the_frontend_can_read_it(client):
+    origin = config.FRONTEND_ORIGINS[0]
+    for _ in range(6):
+        res = client.post("/api/checkout", json={}, headers={"Origin": origin})
+    assert res.status_code == 429 and res.headers.get("access-control-allow-origin") == origin

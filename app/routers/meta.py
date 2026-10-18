@@ -19,4 +19,12 @@ def public_config():
         "supabase_anon_key": config.SUPABASE_ANON_KEY if config.USE_SUPABASE else None,
         "demo": not config.USE_SUPABASE,
         "ai": "groq" if config.USE_GROQ else "offline",
+        "demo_email": config.DEMO_EMAIL or None,
     }
+
+
+@router.get("/api/health")
+def health_details():
+    """Which services are configured. Booleans only: never echoes a key or URL."""
+    return {"ok": True, "supabase": config.USE_SUPABASE, "groq": config.USE_GROQ,
+            "perceptron": bool(getattr(config, "USE_PERCEPTRON", False))}

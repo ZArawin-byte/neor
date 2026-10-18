@@ -4,9 +4,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from . import config
+from .rate_limit import RateLimitMiddleware
 from .routers import ai_routes, bag, commerce, items, meta, profile
 
 app = FastAPI(title="Neor API", description="Backend for Neor - step into your closet.")
+# --- core lane middleware. Rate limits sit inside CORS so a 429 still reaches the browser readable.
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.FRONTEND_ORIGINS,

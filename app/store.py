@@ -241,8 +241,9 @@ def list_orders(uid: str) -> list[dict]:
     return _load()["orders"].get(uid, [])
 
 
-def delete_everything(uid: str) -> None:
-    """'Forget me': wipes profile, closet, orders and photos."""
+def delete_everything(uid: str, keep_account: bool = False) -> None:
+    """'Forget me': wipes profile, closet, orders, bag, boards, looks and photos, then the sign-in
+    account. keep_account=True is only for resetting the demo user."""
     if config.USE_SUPABASE:
         paths = [i["image_path"] for i in list_items(uid) if i.get("image_path") and not i["image_path"].startswith("http")]
         mirror = get_profile(uid).get("mirror_path")
@@ -253,10 +254,11 @@ def delete_everything(uid: str) -> None:
         for table, col in (("closet_items", "user_id"), ("orders", "user_id"), *((t, "user_id") for t in ROW_TABLES),
                            ("profiles", "id")):
             sb().table(table).delete().eq(col, uid).execute()
-        try:  # last: the sign-in account itself, so "forget me" leaves nothing behind
-            sb().auth.admin.delete_user(uid)
-        except Exception:
-            pass
+        if not keep_account:
+            try:  # last: the sign-in account itself, so "forget me" leaves nothing behind
+                sb().auth.admin.delete_user(uid)
+            except Exception:
+                pass
         return
     import shutil
 

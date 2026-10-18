@@ -144,7 +144,7 @@
   background: #1d1209;
 }
 .beyond { position: absolute; inset: 0; overflow: hidden; }
-.beyond img { width: 100%; height: 100%; object-fit: cover; filter: brightness(1.1) saturate(1.05); }
+.beyond .wardrobe { display: block; width: 100%; height: 100%; pointer-events: none; filter: brightness(1.12); }
 .beyond::after {
   content: "";
   position: absolute;

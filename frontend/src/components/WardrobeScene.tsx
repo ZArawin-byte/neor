@@ -9,7 +9,7 @@ import { MASCOT } from "../lib/mascot";
  * Each clickable object is a <Hot> group; Room.tsx supplies the handlers and the tags.
  */
 
-export type SpotId = "archive" | "profile" | "closet" | "window" | "lion" | "mirror";
+export type SpotId = "archive" | "profile" | "closet" | "window" | "lion" | "mirror" | "market";
 
 // Back wall rectangle. Everything else is built from these four edges.
 const BW = { l: 600, r: 1000, t: 230, b: 590 };
@@ -164,7 +164,7 @@ function Window() {
 }
 
 function Mirror() {
-  const xl = 1062, xr = 1192;
+  const xl = 1222, xr = 1362;
   const [, tl] = Rw(xl, 0.14), [, bl] = Rw(xl, 0.86);
   const [, tr] = Rw(xr, 0.12), [, br] = Rw(xr, 0.88);
   const frame = `M${xl} ${bl} L${xl} ${tl + 40} Q${(xl + xr) / 2} ${tl - 46} ${xr} ${tr + 30} L${xr} ${br} Z`;
@@ -200,6 +200,92 @@ function Mirror() {
   );
 }
 
+/** Slope of a horizontal line on the right wall at height v (for skewing flat labels onto it). */
+const slopeR = (v: number) => -(BW.t / BW.l) * (1 - v) + ((900 - BW.b) / BW.l) * v;
+
+/**
+ * A small oil painting of a street market, hung on the right wall: the door to the bargain
+ * finder. Drawn in the wall's own perspective; (u, v) run 0-1 across the canvas.
+ */
+function MarketPainting() {
+  const P = (u: number, v: number) => Rw(1030 + u * 152, 0.2 + v * 0.33);
+  const poly = (pts: [number, number][]) => quad(...pts.map(([u, v]) => P(u, v)));
+  const rect = (u0: number, v0: number, u1: number, v1: number) => poly([[u0, v0], [u1, v0], [u1, v1], [u0, v1]]);
+  const ell = (u: number, v: number, ru: number, rv: number) =>
+    poly(Array.from({ length: 12 }, (_, i) => [u + ru * Math.cos((i / 12) * Math.PI * 2), v + rv * Math.sin((i / 12) * Math.PI * 2)] as [number, number]));
+  const stalls = [
+    { u0: 0.05, u1: 0.34, a: "#b8372e" },
+    { u0: 0.37, u1: 0.63, a: "#2f6b6a" },
+    { u0: 0.66, u1: 0.95, a: "#c98a2e" },
+  ];
+  const cloth = ["#26324f", "#e9b7bd", "#9caf88", "#f3ede0", "#a4532f", "#6b6b3a", "#c3b1e1", "#1d1d1f"];
+  const shoppers: [number, number, string][] = [[0.2, 0.72, "#2f3b2f"], [0.51, 0.75, "#5c1e1d"], [0.83, 0.71, "#26324f"]];
+  const [lx, ly] = P(0.12, 1.12);
+  const lv = 0.2 + 1.12 * 0.33;
+  return (
+    <g>
+      <path d={rect(-0.08, -0.1, 1.08, 1.1)} fill="#000" opacity="0.35" filter="url(#soft)" />
+      <path d={rect(-0.07, -0.09, 1.07, 1.09)} fill="url(#gilt)" />
+      <path d={rect(-0.02, -0.025, 1.02, 1.025)} fill="#3b2414" />
+      {/* sky, rooftops and bunting */}
+      <path d={rect(0, 0, 1, 0.5)} fill="#efd6a2" />
+      <path d={ell(0.8, 0.14, 0.09, 0.07)} fill="#fbeac2" />
+      <path d={rect(0, 0.17, 0.22, 0.5)} fill="#c48a5c" />
+      <path d={poly([[0, 0.17], [0.11, 0.07], [0.22, 0.17]])} fill="#8a4a2c" />
+      <path d={rect(0.22, 0.25, 0.46, 0.5)} fill="#d9b383" />
+      <path d={rect(0.46, 0.13, 0.7, 0.5)} fill="#a8663f" />
+      <path d={poly([[0.46, 0.13], [0.58, 0.04], [0.7, 0.13]])} fill="#6e3a22" />
+      <path d={rect(0.7, 0.23, 1, 0.5)} fill="#caa070" />
+      {[0.06, 0.14, 0.28, 0.38, 0.52, 0.62, 0.76, 0.88].map((u) => <path key={u} d={rect(u, 0.27, u + 0.035, 0.33)} fill="#5a3a22" opacity="0.7" />)}
+      {Array.from({ length: 10 }, (_, i) => {
+        const u = 0.05 + i * 0.1;
+        return <path key={i} d={poly([[u - 0.035, 0.335], [u + 0.035, 0.335], [u, 0.39]])} fill={["#b8372e", "#f3e6cc", "#2f6b6a", "#c98a2e"][i % 4]} />;
+      })}
+      {/* cobbles */}
+      <path d={rect(0, 0.78, 1, 1)} fill="#8a7357" />
+      {[0.84, 0.91, 0.97].map((v) => <path key={v} d={rect(0, v, 1, v + 0.008)} fill="#6e5a43" />)}
+      {/* three stalls with striped awnings and clothes on rails */}
+      {stalls.map(({ u0, u1, a }) => {
+        const w = (u1 - u0) / 5;
+        return (
+          <g key={u0}>
+            <path d={rect(u0, 0.4, u0 + 0.014, 0.8)} fill="#5a3a22" />
+            <path d={rect(u1 - 0.014, 0.4, u1, 0.8)} fill="#5a3a22" />
+            {Array.from({ length: 5 }, (_, k) => (
+              <g key={k}>
+                <path d={rect(u0 + k * w, 0.4, u0 + (k + 1) * w, 0.5)} fill={k % 2 ? "#f3e6cc" : a} />
+                <path d={poly([[u0 + k * w, 0.5], [u0 + (k + 1) * w, 0.5], [u0 + (k + 0.5) * w, 0.535]])} fill={k % 2 ? "#f3e6cc" : a} />
+              </g>
+            ))}
+            <path d={rect(u0 + 0.01, 0.55, u1 - 0.01, 0.557)} fill="#3b2414" />
+            {Array.from({ length: 4 }, (_, k) => {
+              const x = u0 + 0.025 + k * ((u1 - u0 - 0.05) / 4);
+              return <path key={k} d={poly([[x, 0.56], [x + 0.05, 0.56], [x + 0.056, 0.66], [x - 0.006, 0.66]])} fill={cloth[(k + Math.round(u0 * 10)) % cloth.length]} />;
+            })}
+            <path d={rect(u0 - 0.008, 0.665, u1 + 0.008, 0.69)} fill="#9a6a3e" />
+            <path d={rect(u0, 0.69, u1, 0.8)} fill="#6e4426" />
+          </g>
+        );
+      })}
+      {/* a sale card on the middle stall */}
+      <path d={rect(0.44, 0.7, 0.56, 0.77)} fill="#f7f1e3" />
+      <path d={rect(0.46, 0.72, 0.54, 0.735)} fill="#b8372e" />
+      {shoppers.map(([u, v, c]) => (
+        <g key={u}>
+          <path d={poly([[u - 0.026, v], [u + 0.026, v], [u + 0.036, v + 0.15], [u - 0.036, v + 0.15]])} fill={c} />
+          <path d={ell(u, v - 0.035, 0.019, 0.032)} fill="#c99a78" />
+        </g>
+      ))}
+      {/* varnish: warm, darker at the edges, like an old oil painting */}
+      <path d={rect(0, 0, 1, 1)} fill="url(#varnish)" />
+      <g transform={`translate(${lx} ${ly}) matrix(1 ${slopeR(lv)} 0 1 0 0)`}>
+        <rect width="104" height="22" rx="3" fill="url(#brassPlate)" stroke="#6b4c16" strokeWidth="1" />
+        <text x="52" y="15" textAnchor="middle" className="plate-text">BARGAINS</text>
+      </g>
+    </g>
+  );
+}
+
 function SideTable() {
   return (
     <g>
@@ -225,11 +311,33 @@ function SideTable() {
 
 // ---------------------------------------------------------------- the scene
 
-export function WardrobeScene({ onLionContext, ...props }: Omit<HotProps, "id" | "label" | "children" | "onContext"> & { onLionContext: (e: React.MouseEvent) => void }) {
+export function WardrobeScene({ onLionContext, showMarket = false, ...props }: Omit<HotProps, "id" | "label" | "children" | "onContext"> & {
+  onLionContext: (e: React.MouseEvent) => void;
+  /** The market painting is the bargain finder's door, so it only hangs when that feature is on. */
+  showMarket?: boolean;
+}) {
   const shelf = (v: number) => quad(Lw(40, v), Lw(540, v), Lw(540, v + 0.014), Lw(40, v + 0.014));
   const box = (x0: number, x1: number, v: number, hgt: number) => quad(Lw(x0, v - hgt), Lw(x1, v - hgt), Lw(x1, v), Lw(x0, v));
   const railA = Lw(50, RAIL_V), railB = Lw(560, RAIL_V);
   const slopeAt = (v: number) => (BW.t / BW.l) * (1 - v) - ((900 - BW.b) / BW.l) * v;
+  // A strip light under each shelf, washing the wall below, so both shelves read as places to click.
+  const litShelf = (v: number) => (
+    <>
+      <path d={quad(Lw(40, v + 0.014), Lw(540, v + 0.014), Lw(540, v + 0.1), Lw(40, v + 0.1))} fill="url(#shelfWash)" />
+      <path d={shelf(v)} fill="#3b2414" />
+      <path d={quad(Lw(40, v), Lw(540, v), Lw(540, v + 0.004), Lw(40, v + 0.004))} fill="#8a5a34" />
+      <path d={`M${Lw(44, v + 0.0135).join(" ")} L${Lw(536, v + 0.0135).join(" ")}`} stroke="#ffe2a2" strokeWidth="2.5" filter="url(#glowLine)" />
+    </>
+  );
+  const plate = (x: number, v: number, label: string) => (
+    <g className="plate" transform={`translate(${Lw(x, v).join(" ")}) matrix(1 ${slopeAt(v)} 0 1 0 0) scale(${(scaleAt(x) * 1.2).toFixed(3)})`}>
+      <rect x="-2" y="-1" width="112" height="30" rx="4" fill="#000" opacity="0.35" />
+      <rect width="108" height="26" rx="3" fill="url(#brassPlate)" stroke="#6b4c16" strokeWidth="1" />
+      <circle cx="7" cy="13" r="1.8" fill="#6b4c16" />
+      <circle cx="101" cy="13" r="1.8" fill="#6b4c16" />
+      <text x="54" y="17.5" textAnchor="middle" className="plate-text">{label}</text>
+    </g>
+  );
 
   return (
     <svg className="wardrobe" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Inside the wardrobe">
@@ -249,6 +357,23 @@ export function WardrobeScene({ onLionContext, ...props }: Omit<HotProps, "id" |
           <feDisplacementMap in="SourceGraphic" in2="n" scale="7" />
         </filter>
         <filter id="soft"><feGaussianBlur stdDeviation="6" /></filter>
+        <linearGradient id="shelfWash" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffcf86" stopOpacity="0.5" />
+          <stop offset="1" stopColor="#ffcf86" stopOpacity="0" />
+        </linearGradient>
+        <filter id="glowLine" x="-5%" y="-200%" width="110%" height="500%">
+          <feGaussianBlur stdDeviation="2.5" result="b" />
+          <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+        <linearGradient id="brassPlate" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#f6dc98" />
+          <stop offset="0.5" stopColor="#c9a050" />
+          <stop offset="1" stopColor="#9a7428" />
+        </linearGradient>
+        <radialGradient id="varnish" cx="0.5" cy="0.45" r="0.7">
+          <stop offset="0.5" stopColor="#5a2e08" stopOpacity="0" />
+          <stop offset="1" stopColor="#3a1c04" stopOpacity="0.45" />
+        </radialGradient>
         <radialGradient id="hotGlow">
           <stop offset="0" stopColor="#ffd796" stopOpacity="1" />
           <stop offset="0.6" stopColor="#ffd796" stopOpacity="0.45" />
@@ -348,26 +473,20 @@ export function WardrobeScene({ onLionContext, ...props }: Omit<HotProps, "id" |
 
       {/* shelves: archive on top, profile below */}
       <Hot id="archive" label="Archive: every look you have saved" {...props}>
-        <path d={shelf(0.13)} fill="#3b2414" />
+        {litShelf(0.13)}
         <path d={box(70, 190, 0.13, 0.07)} fill="#6e2a20" />
         <path d={box(200, 300, 0.13, 0.055)} fill="#2f3b2f" />
         <path d={box(310, 400, 0.13, 0.065)} fill="#7a5a3a" />
-        <g transform={`translate(${Lw(96, 0.1).join(" ")}) matrix(1 ${slopeAt(0.1)} 0 1 0 0)`}>
-          <rect width="72" height="16" rx="2" fill="#c9a463" />
-          <text x="36" y="12" textAnchor="middle" className="plate-text">ARCHIVE</text>
-        </g>
+        {plate(86, 0.084, "ARCHIVE")}
         <path className="hot-glow" d={quad(Lw(60, 0.05), Lw(420, 0.05), Lw(420, 0.15), Lw(60, 0.15))} />
       </Hot>
 
       <Hot id="profile" label="Profile: what Neor should know about you" {...props}>
-        <path d={shelf(0.25)} fill="#3b2414" />
+        {litShelf(0.25)}
         <path d={box(80, 200, 0.25, 0.06)} fill="#a58a62" />
         <path d={box(215, 330, 0.25, 0.07)} fill="#4a2f22" />
         <path d={box(345, 420, 0.25, 0.05)} fill="#6e2a20" />
-        <g transform={`translate(${Lw(236, 0.225).join(" ")}) matrix(1 ${slopeAt(0.225)} 0 1 0 0)`}>
-          <rect width="64" height="15" rx="2" fill="#c9a463" />
-          <text x="32" y="11.5" textAnchor="middle" className="plate-text">PROFILE</text>
-        </g>
+        {plate(222, 0.206, "PROFILE")}
         <path className="hot-glow" d={quad(Lw(60, 0.17), Lw(440, 0.17), Lw(440, 0.27), Lw(60, 0.27))} />
       </Hot>
 
@@ -380,8 +499,15 @@ export function WardrobeScene({ onLionContext, ...props }: Omit<HotProps, "id" |
 
       <Hot id="mirror" label="Mirror: try on whatever is on your table" {...props}>
         <Mirror />
-        <path className="hot-glow" d={quad(Rw(1060, 0.1), Rw(1194, 0.08), Rw(1194, 0.9), Rw(1060, 0.88))} />
+        <path className="hot-glow" d={quad(Rw(1220, 0.1), Rw(1364, 0.08), Rw(1364, 0.9), Rw(1220, 0.88))} />
       </Hot>
+
+      {showMarket && (
+        <Hot id="market" label="Bargain market: good clothes going cheap near you" {...props}>
+          <MarketPainting />
+          <path className="hot-glow" d={quad(Rw(1018, 0.16), Rw(1194, 0.14), Rw(1194, 0.62), Rw(1018, 0.6))} />
+        </Hot>
+      )}
 
       {/* rug, ottoman and the lion */}
       <ellipse cx="880" cy="772" rx="340" ry="74" fill="#5c1a17" />

@@ -39,7 +39,7 @@
 .hot.is-on { filter: brightness(1.14) saturate(1.05); }
 .hot.is-on .hot-glow { fill-opacity: 0.32; }
 .hot:focus-visible .hot-glow { fill-opacity: 0.36; }
-.plate-text { font: 700 9.5px var(--sans); letter-spacing: 0.14em; fill: #3a2410; }
+.plate-text { font: 700 12.5px var(--sans); letter-spacing: 0.16em; fill: #2e1c0a; }
 
 .snow circle { animation: snowfall linear infinite; }
 @keyframes snowfall {
@@ -128,4 +128,12 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .snow circle, .motes circle { animation: none; }
+}
+
+/* The shelf plates catch the light now and then, so people notice they open. */
+.plate { animation: glint 6s ease-in-out infinite; }
+.hot.is-on .plate { animation: none; filter: brightness(1.25); }
+@keyframes glint {
+  0%, 82%, 100% { filter: brightness(1); }
+  90% { filter: brightness(1.45) drop-shadow(0 0 6px rgba(255, 220, 150, 0.8)); }
 }

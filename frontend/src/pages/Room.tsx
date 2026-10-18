@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useLionMenu } from "../components/LionMenu";
 import { WardrobeScene, type SpotId } from "../components/WardrobeScene";
+import { FEATURES } from "../features";
 import { MASCOT, mascotTitle } from "../lib/mascot";
 import "../styles/room.css";
 
@@ -15,7 +16,8 @@ const SPOTS: Record<SpotId, { to: string; title: string; blurb: string; at: [num
   closet: { to: "/closet", title: "Closet", blurb: "Your creative space: everything you own, ready to mix.", at: [565, 330], side: "right" },
   window: { to: "/window", title: "Window", blurb: "A map of cafes and photo spots, with outfits to match each one.", at: [800, 596], side: "below" },
   lion: { to: "/critique", title: "The lion", blurb: "A closet critique, and the essentials you may be missing. Right-click to see him in action.", at: [728, 470], side: "left" },
-  mirror: { to: "/mirror", title: "Mirror", blurb: "Upload a photo and try on whatever is on your table.", at: [1056, 300], side: "left" },
+  mirror: { to: "/mirror", title: "Mirror", blurb: "Upload a photo and try on whatever is on your table.", at: [1216, 300], side: "left" },
+  market: { to: "/bargains", title: "Bargain market", blurb: "Good clothes going cheap around you this week.", at: [1100, 470], side: "below" },
 };
 
 export default function Room() {
@@ -24,9 +26,16 @@ export default function Room() {
   const [active, setActive] = useState<SpotId | null>(null);
   const lion = useLionMenu();
   const spot = active && SPOTS[active];
+  const roomRef = useRef<HTMLElement>(null);
+
+  // On narrow screens the room pans sideways; open it centred on the lion rather than the coats.
+  useEffect(() => {
+    const el = roomRef.current;
+    if (el && el.scrollWidth > el.clientWidth) el.scrollLeft = el.scrollWidth * (886 / 1600) - el.clientWidth / 2;
+  }, []);
 
   return (
-    <main className={`room ${state?.fromDoors ? "from-doors" : ""}`}>
+    <main ref={roomRef} className={`room ${state?.fromDoors ? "from-doors" : ""}`}>
       <div className="room-stage">
         <WardrobeScene
           active={active}
@@ -34,6 +43,7 @@ export default function Room() {
           onLeave={() => setActive(null)}
           onOpen={(id) => nav(SPOTS[id].to)}
           onLionContext={lion.onContextMenu}
+          showMarket={FEATURES.some((f) => f.id === "bargains")}
         />
         {spot && (
           <span className={`spot-tag tag-${spot.side}`} style={{ left: `${(spot.at[0] / 1600) * 100}%`, top: `${(spot.at[1] / 900) * 100}%` }}>

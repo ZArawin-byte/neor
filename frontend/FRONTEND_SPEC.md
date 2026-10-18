@@ -68,20 +68,17 @@ Google button: white, `#dadce0` border, the official four-colour G. Don't restyl
 
 ## 3. The walk-in room (`pages/Room.tsx`, `styles/room.css`)
 
-The background is `public/room/walk-in.png`, the lion render (1671×941). It always covers the viewport at its own aspect ratio, so hotspots are plain percentages of the image. When the screen is narrower than the picture, it crops mostly from the right, so the logo and the clothes rail stay visible. On portrait phones the room scrolls sideways instead.
+The room is drawn in code: `components/WardrobeScene.tsx` is one 1600×900 SVG in one-point perspective. It has oak panelling, a beamed ceiling with a lantern, fur and wool coats on a brass rail, two lit shelves with brass ARCHIVE and PROFILE plates, a leaded window onto snow and a lamppost (the only view outside), a gilt mirror, a market painting (the bargain finder), and the mascot lion (`public/room/lion.webp`, background removed) on a velvet ottoman. Each object is its own hotspot. Hover tags are placed in the same 1600×900 coordinates (the `SPOTS` table in `Room.tsx`). The scene covers the screen at 16:9. On portrait phones it pans sideways and opens centred on the lion. The doors on the landing page open onto this same scene.
 
-| Hotspot | Box (left, top, w, h, in %) | Shape | Goes to | Hover text |
-|---|---|---|---|---|
-| Top shelf | 14.2, 9.5, 14.4, 7 | rect | `/archive` | **Archival looks**: See your past history and favourites. |
-| Second shelf | 14.2, 17, 14.4, 7 | rect | `/profile` | **Profile**: Your photo, your preferences, your data. |
-| Clothes rail | 14.2, 25, 15.4, 36 | rect | `/closet` | **Closet**: Your creative space of uploaded clothes. |
-| Window | 41.6, 10.2, 16.8, 32.5 | diamond | `/window` | **Window**: Outfits for the cafes and photo spots around you. |
-| Lion + ottoman | 35.5, 42, 30, 47 | ellipse | `/critique` | **The lion**: Closet critique. Essentials you may be missing. |
-| Mirror | 64.8, 11.5, 7.8, 49 | leaning quad | `/mirror` | **Mirror**: Try on your mood board. |
-
-On hover or keyboard focus, a warm glow brightens the object (a screen-blended radial gradient clipped to its shape), and a cream card tag appears beside it. On touch screens, which can't hover, short labels stay visible all the time.
-
-**If the render changes, re-measure these boxes.** They live in the `SPOTS` array.
+| Object | Goes to |
+|---|---|
+| ARCHIVE shelf (top) | `/archive` |
+| PROFILE shelf | `/profile` |
+| Coat rail | `/closet` |
+| Window | `/window` |
+| Lion + ottoman (right-click: montage menu) | `/critique` |
+| Mirror | `/mirror` |
+| Market painting (only if the bargains feature is on) | `/bargains` |
 
 ---
 
@@ -329,7 +326,7 @@ The bookmark table also has a **Try it on** button that goes straight to the mir
 
   On Android, a long-press does the same.
 - **To use your own lion:** set `name`, `zoo`, `photo`, `credit` and `montage` in `mascot.ts`. Nothing else changes.
-- **The lion in the room render** is still the rendered one. Replacing it needs a new render or a composited photo of `public/room/walk-in.png`.
+- **The room lion** is the team's photo with the background removed (`public/room/lion.webp`). The full photo is used for the portrait (`public/mascot/lion.jpg`).
 
 ## 13. Profile (`/profile`)
 
@@ -357,3 +354,15 @@ Optional features plug in through `src/features/index.ts`. Each feature declares
 - **The data seam:** `source.ts` → `findBargains(city)`. It currently uses `/api/ai/places` and keeps the clothing shops. Plug the real bargain service in there, using the `Bargain` shape (`price` and `url` are supported).
 - **To hide it:** set `VITE_FEATURE_BARGAINS=off` in `frontend/.env`.
 - **To remove it:** delete `src/features/bargains/` and its line in `src/features/index.ts`.
+
+## 15. Add from a link, and mirror try-on
+
+**Add from a link.** The add-a-piece sheet takes a shop URL. `POST /api/items/import {url}` fetches the page on the server and reads `og:image` / `twitter:image`, plus the title and the `product:price:amount` price. It downloads the photo and returns it as a data URL. Then the normal flow takes over: cut-out, tag, choose a rack.
+- **Safety:** it only fetches public http(s) hosts, checked again on every redirect, so a pasted link can't reach localhost, private networks or cloud metadata addresses.
+- **Limits:** JPG, PNG or WebP only, 8MB maximum.
+- **Blocked shops:** shops that block bots return a friendly message asking for an upload instead.
+
+**Mirror try-on** (`components/TryOn.tsx`). Upload a full-length photo, then drag pieces from the table onto it, or tap a piece to place it at a sensible height (tops at the chest, shoes at the feet).
+- **Adjusting:** tap a placed piece for the toolbar: smaller, bigger, rotate, bring to front, remove. Drag a piece off the mirror to take it off.
+- **Saving:** the layout is kept on the device (`neor.tryon`). **Save this fit** stores it with the look, and the archive card draws it over the photo. The mirror is a fixed 9:20 shape so the positions line up.
+- **How dropping works:** pieces are placed under the pointer, not by the dragged item's box. Auto-scroll is limited to a thin band at the window edge, otherwise dropping shoes near the bottom of the mirror scrolled the page away.

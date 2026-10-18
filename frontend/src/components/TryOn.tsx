@@ -1,9 +1,11 @@
 import {
-  DndContext, DragOverlay, KeyboardSensor, PointerSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors,
+  DndContext, DragOverlay, KeyboardSensor, PointerSensor, TouchSensor, pointerWithin, rectIntersection, useDraggable, useDroppable, useSensor, useSensors,
+  type CollisionDetection,
   type DragEndEvent, type DragStartEvent,
 } from "@dnd-kit/core";
 import { useState, type ReactNode } from "react";
 import { assetUrl } from "../lib/api";
+import { dropPoint } from "../lib/dropPoint";
 import { RACK_BY_ID, slotOf } from "../lib/racks";
 import type { BoardPiece, WornPiece } from "../lib/types";
 import { Icon } from "./Icon";
@@ -15,6 +17,8 @@ type Drag = { kind: "table"; piece: BoardPiece } | { kind: "worn"; key: string }
 /** Starting width of a piece on your photo, as % of the mirror's width, by what it is. */
 const START_W: Record<string, number> = { top: 46, layer: 54, bottom: 40, onepiece: 52, shoes: 26, extra: 22 };
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+/** Drop where the pointer is; keyboard drags have no pointer, so fall back to overlap. */
+const underPointer: CollisionDetection = (args) => (args.pointerCoordinates ? pointerWithin(args) : rectIntersection(args));
 
 function Garment({ snap }: { snap: BoardPiece["snap"] }) {
   const src = assetUrl(snap.image_url);
@@ -65,6 +69,12 @@ function TablePiece({ p, onWear }: { p: BoardPiece; onWear: () => void }) {
   );
 }
 
+/** The drop target. It has to be its own component so its hook runs inside the DndContext. */
+function Glass({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+  const { setNodeRef, isOver } = useDroppable({ id: "glass" });
+  return <div ref={setNodeRef} className={`mirror-glass ${isOver ? "is-over" : ""}`} onClick={onClick}>{children}</div>;
+}
+
 export function TryOn({ photo, pieces, worn, setWorn, boardName, emptyMirror, tableFooter }: {
   photo: string | null;
   pieces: BoardPiece[];
@@ -79,7 +89,6 @@ export function TryOn({ photo, pieces, worn, setWorn, boardName, emptyMirror, ta
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 6 } }),
     useSensor(KeyboardSensor),
   );
-  const { setNodeRef, isOver } = useDroppable({ id: "glass" });
   const [held, setHeld] = useState<BoardPiece | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const top = () => worn.reduce((m, w) => Math.max(m, w.z), 0) + 1;
@@ -101,12 +110,11 @@ export function TryOn({ photo, pieces, worn, setWorn, boardName, emptyMirror, ta
   function onDragEnd(e: DragEndEvent) {
     setHeld(null);
     const d = e.active.data.current as Drag | undefined;
-    const box = e.active.rect.current.translated;
+    const pt = dropPoint(e);
     if (!d) return;
-    if (e.over?.id === "glass" && box) {
-      const g = e.over.rect;
-      const x = clamp(((box.left + box.width / 2 - g.left) / g.width) * 100, 4, 96);
-      const y = clamp(((box.top + box.height / 2 - g.top) / g.height) * 100, 3, 97);
+    if (e.over?.id === "glass" && pt) {
+      const x = clamp(pt.x, 4, 96);
+      const y = clamp(pt.y, 3, 97);
       if (d.kind === "table") wear(d.piece, x, y);
       else setWorn(worn.map((w) => (w.key === d.key ? { ...w, x, y } : w)));
     } else if (d.kind === "worn") {
@@ -118,15 +126,17 @@ export function TryOn({ photo, pieces, worn, setWorn, boardName, emptyMirror, ta
   const change = (patch: Partial<WornPiece>) => sel && setWorn(worn.map((w) => (w.key === sel.key ? { ...w, ...patch } : w)));
 
   return (
-    <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setHeld(null)}>
+    // Auto-scroll only in a thin band at the window edge: the mirror runs close to the bottom of the
+    // screen, and the default (20%) scrolled the page away while you were dropping shoes on your feet.
+    <DndContext sensors={sensors} collisionDetection={underPointer} autoScroll={{ threshold: { x: 0, y: 0.06 } }} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setHeld(null)}>
       <div className="mirror-layout">
         <div className="mirror-col">
           <div className="mirror-frame">
-            <div ref={setNodeRef} className={`mirror-glass ${isOver ? "is-over" : ""}`} onClick={() => setSelected(null)}>
+            <Glass onClick={() => setSelected(null)}>
               {photo ? <img className="mirror-photo" src={photo} alt="You, full length" draggable={false} /> : emptyMirror}
               {worn.map((w) => <Worn key={w.key} w={w} selected={w.key === selected} onSelect={() => setSelected(w.key)} />)}
               <span className="sheen" />
-            </div>
+            </Glass>
           </div>
 
           <div className={`tryon-tools ${sel ? "is-on" : ""}`} role="toolbar" aria-label="Adjust the selected piece">

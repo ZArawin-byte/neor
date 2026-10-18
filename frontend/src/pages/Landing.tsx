@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { WardrobeScene } from "../components/WardrobeScene";
 import { FEATURES } from "../features";
 import { isSignedIn, signInWithGoogle } from "../lib/auth";
 import "../styles/landing.css";
@@ -145,7 +146,10 @@ export default function Landing() {
               <span className="gilt">Neor</span>
             </div>
             <div className="doorway">
-              <div className="beyond"><img src="/room/walk-in.png" alt="" /></div>
+              <div className="beyond" aria-hidden="true">
+                {/* The real wardrobe, so the doors open onto the same room you walk into. */}
+                <WardrobeScene active={null} onEnter={() => {}} onLeave={() => {}} onOpen={() => {}} onLionContext={() => {}} showMarket={FEATURES.some((f) => f.id === "bargains")} />
+              </div>
               <div className="seam" />
               <Door side="left" />
               <Door side="right" />

@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, File, UploadFile
 
 from .. import store
 from ..deps import current_user
+from ..schemas import ProfilePatch
 from ..uploads import read_image
 
 router = APIRouter()
@@ -14,11 +15,9 @@ def get_profile(uid: str = Depends(current_user)):
 
 
 @router.put("/api/profile")
-def put_profile(patch: dict, uid: str = Depends(current_user)):
-    allowed = {"name", "styles", "modesty", "modesty_notes", "measurements", "budget", "scents",
-               "colors_love", "colors_avoid", "climate", "theme", "onboarded", "accessories", "ai_consent",
-               "age", "gender", "pronouns", "tradition", "dress_rules"}
-    return store.save_profile(uid, {k: v for k, v in patch.items() if k in allowed})
+def put_profile(patch: ProfilePatch, uid: str = Depends(current_user)):
+    # Only the fields the client sent; unknown keys were already dropped by the model.
+    return store.save_profile(uid, patch.model_dump(exclude_unset=True, mode="json"))
 
 
 @router.post("/api/profile/mirror")

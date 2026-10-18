@@ -47,6 +47,17 @@ def _signed(path: str | None) -> str | None:
         return None
 
 
+def _signed_many(paths: list[str]) -> dict[str, str]:
+    """One request for every photo in the closet instead of one per item."""
+    if not paths:
+        return {}
+    try:
+        res = sb().storage.from_(BUCKET).create_signed_urls(paths, SIGNED_URL_TTL)
+        return {r["path"]: r.get("signedURL") or r.get("signedUrl") for r in res if r.get("path")}
+    except Exception:
+        return {p: _signed(p) for p in paths}
+
+
 # ---------------------------------------------------------------- Local JSON
 
 _lock = threading.Lock()
@@ -132,9 +143,17 @@ def list_items(uid: str) -> list[dict]:
             .order("created_at", desc=True).execute().data
         )
         items = [{**r["data"], "id": r["id"], "image_path": r["image_path"]} for r in rows]
-    else:
-        items = list(_load()["items"].get(uid, []))
+        urls = _signed_many([i["image_path"] for i in items if i.get("image_path") and not i["image_path"].startswith("http")])
+        for i in items:
+            path = i.get("image_path")
+            i["image_url"] = path if path and path.startswith("http") else urls.get(path)
+        return items
+    items = list(_load()["items"].get(uid, []))
     return [_hydrate(i) for i in items]
+
+
+def get_item(uid: str, item_id: str) -> dict | None:
+    return next((i for i in list_items(uid) if i["id"] == item_id), None)
 
 
 def add_item(uid: str, item: dict, image: bytes | None = None, ext: str = "jpg",
@@ -157,33 +176,50 @@ def add_item(uid: str, item: dict, image: bytes | None = None, ext: str = "jpg",
     return _hydrate(dict(new))
 
 
-def update_item(uid: str, item_id: str, patch: dict) -> None:
+def _sb_rows(table: str, uid: str, row_id: str, cols: str = "*") -> list[dict]:
+    """Rows owned by uid with this id. A malformed id is just 'not found', not a 500."""
+    try:
+        return sb().table(table).select(cols).eq("id", row_id).eq("user_id", uid).execute().data
+    except Exception:
+        return []
+
+
+def update_item(uid: str, item_id: str, patch: dict) -> bool:
+    """Returns False when the item doesn't exist or isn't this user's."""
     patch = {k: v for k, v in patch.items() if k not in ("id", "image_url", "image_path")}
     if config.USE_SUPABASE:
-        rows = sb().table("closet_items").select("data").eq("id", item_id).eq("user_id", uid).execute().data
-        if rows:
-            sb().table("closet_items").update({"data": {**rows[0]["data"], **patch}}) \
-                .eq("id", item_id).eq("user_id", uid).execute()
-        return
+        rows = _sb_rows("closet_items", uid, item_id, "data")
+        if not rows:
+            return False
+        sb().table("closet_items").update({"data": {**rows[0]["data"], **patch}}) \
+            .eq("id", item_id).eq("user_id", uid).execute()
+        return True
     with _lock:
         db = _load()
+        found = False
         for it in db["items"].get(uid, []):
             if it["id"] == item_id:
                 it.update(patch)
+                found = True
         _save(db)
+    return found
 
 
-def delete_item(uid: str, item_id: str) -> None:
+def delete_item(uid: str, item_id: str) -> bool:
     if config.USE_SUPABASE:
-        rows = sb().table("closet_items").select("image_path").eq("id", item_id).eq("user_id", uid).execute().data
-        if rows and rows[0]["image_path"] and not rows[0]["image_path"].startswith("http"):
+        rows = _sb_rows("closet_items", uid, item_id, "image_path")
+        if not rows:
+            return False
+        if rows[0]["image_path"] and not rows[0]["image_path"].startswith("http"):
             sb().storage.from_(BUCKET).remove([rows[0]["image_path"]])
         sb().table("closet_items").delete().eq("id", item_id).eq("user_id", uid).execute()
-        return
+        return True
     with _lock:
         db = _load()
-        db["items"][uid] = [i for i in db["items"].get(uid, []) if i["id"] != item_id]
+        before = db["items"].get(uid, [])
+        db["items"][uid] = [i for i in before if i["id"] != item_id]
         _save(db)
+    return len(db["items"][uid]) < len(before)
 
 
 def add_order(uid: str, order: dict) -> dict:
@@ -205,8 +241,9 @@ def list_orders(uid: str) -> list[dict]:
     return _load()["orders"].get(uid, [])
 
 
-def delete_everything(uid: str) -> None:
-    """'Forget me': wipes profile, closet, orders and photos."""
+def delete_everything(uid: str, keep_account: bool = False) -> None:
+    """'Forget me': wipes profile, closet, orders, bag, boards, looks and photos, then the sign-in
+    account. keep_account=True is only for resetting the demo user."""
     if config.USE_SUPABASE:
         paths = [i["image_path"] for i in list_items(uid) if i.get("image_path") and not i["image_path"].startswith("http")]
         mirror = get_profile(uid).get("mirror_path")
@@ -214,14 +251,108 @@ def delete_everything(uid: str) -> None:
             paths.append(mirror)
         if paths:
             sb().storage.from_(BUCKET).remove(paths)
-        for table, col in (("closet_items", "user_id"), ("orders", "user_id"), ("profiles", "id")):
+        for table, col in (("closet_items", "user_id"), ("orders", "user_id"), *((t, "user_id") for t in ROW_TABLES),
+                           ("profiles", "id")):
             sb().table(table).delete().eq(col, uid).execute()
+        if not keep_account:
+            try:  # last: the sign-in account itself, so "forget me" leaves nothing behind
+                sb().auth.admin.delete_user(uid)
+            except Exception:
+                pass
         return
     import shutil
 
     with _lock:
         db = _load()
-        for key in ("profiles", "items", "orders"):
-            db[key].pop(uid, None)
+        for key in ("profiles", "items", "orders", *ROW_TABLES):
+            db.setdefault(key, {}).pop(uid, None)
         _save(db)
     shutil.rmtree(config.UPLOAD_DIR / uid, ignore_errors=True)
+
+
+# ---------------------------------------------------------------- Simple per-user rows: bag, boards, looks
+# Each table is (id, user_id, data jsonb, created_at), same as orders. See supabase/migrations/.
+
+ROW_TABLES = ("bag", "boards", "looks")
+
+
+def _rows(table: str, uid: str) -> list[dict]:
+    if config.USE_SUPABASE:
+        rows = sb().table(table).select("*").eq("user_id", uid).order("created_at", desc=True).execute().data
+        return [{**r["data"], "id": r["id"]} for r in rows]
+    return list(_load().get(table, {}).get(uid, []))
+
+
+def _row_get(table: str, uid: str, row_id: str) -> dict | None:
+    if config.USE_SUPABASE:
+        rows = _sb_rows(table, uid, row_id)
+        return {**rows[0]["data"], "id": rows[0]["id"]} if rows else None
+    return next((r for r in _rows(table, uid) if r["id"] == row_id), None)
+
+
+def _row_add(table: str, uid: str, data: dict) -> dict:
+    """Boards and looks arrive with the id the browser made, so offline and online copies match.
+    Bag entries get a server-made id."""
+    row_id = data.get("id")
+    data = {k: v for k, v in data.items() if k != "id"}
+    if config.USE_SUPABASE:
+        row = sb().table(table).insert({"user_id": uid, "data": data, **({"id": row_id} if row_id else {})}).execute().data[0]
+        return {**row["data"], "id": row["id"]}
+    new = {**data, "id": row_id or uuid.uuid4().hex}
+    with _lock:
+        db = _load()
+        db.setdefault(table, {}).setdefault(uid, []).insert(0, new)
+        _save(db)
+    return new
+
+
+def _row_update(table: str, uid: str, row_id: str, patch: dict) -> dict | None:
+    current = _row_get(table, uid, row_id)
+    if current is None:
+        return None
+    merged = {**current, **{k: v for k, v in patch.items() if k != "id"}}
+    data = {k: v for k, v in merged.items() if k != "id"}
+    if config.USE_SUPABASE:
+        sb().table(table).update({"data": data}).eq("id", row_id).eq("user_id", uid).execute()
+    else:
+        with _lock:
+            db = _load()
+            db[table][uid] = [merged if r["id"] == row_id else r for r in db[table][uid]]
+            _save(db)
+    return merged
+
+
+def _row_delete(table: str, uid: str, row_id: str) -> bool:
+    if _row_get(table, uid, row_id) is None:
+        return False
+    if config.USE_SUPABASE:
+        sb().table(table).delete().eq("id", row_id).eq("user_id", uid).execute()
+    else:
+        with _lock:
+            db = _load()
+            db[table][uid] = [r for r in db[table][uid] if r["id"] != row_id]
+            _save(db)
+    return True
+
+
+def list_bag(uid: str) -> list[dict]: return _rows("bag", uid)
+def get_bag_entry(uid: str, entry_id: str) -> dict | None: return _row_get("bag", uid, entry_id)
+def add_bag_entry(uid: str, entry: dict) -> dict: return _row_add("bag", uid, entry)
+def update_bag_entry(uid: str, entry_id: str, patch: dict) -> dict | None: return _row_update("bag", uid, entry_id, patch)
+def delete_bag_entry(uid: str, entry_id: str) -> bool: return _row_delete("bag", uid, entry_id)
+
+def list_boards(uid: str) -> list[dict]: return _rows("boards", uid)
+def get_board(uid: str, board_id: str) -> dict | None: return _row_get("boards", uid, board_id)
+def add_board(uid: str, board: dict) -> dict: return _row_add("boards", uid, board)
+def update_board(uid: str, board_id: str, patch: dict) -> dict | None: return _row_update("boards", uid, board_id, patch)
+def delete_board(uid: str, board_id: str) -> bool: return _row_delete("boards", uid, board_id)
+
+def list_looks(uid: str) -> list[dict]: return _rows("looks", uid)  # the AI lane reads favourites from here
+def get_look(uid: str, look_id: str) -> dict | None: return _row_get("looks", uid, look_id)
+def add_look(uid: str, look: dict) -> dict: return _row_add("looks", uid, look)
+def update_look(uid: str, look_id: str, patch: dict) -> dict | None: return _row_update("looks", uid, look_id, patch)
+def delete_look(uid: str, look_id: str) -> bool: return _row_delete("looks", uid, look_id)
+
+
+def find_order(uid: str, idempotency_key: str) -> dict | None:
+    return next((o for o in list_orders(uid) if o.get("idempotency_key") == idempotency_key), None)

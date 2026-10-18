@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode } from "react";
+import { bag } from "./bag";
 import { bargains } from "./bargains";
 
 /**
@@ -14,4 +15,5 @@ export interface Feature {
 
 export const FEATURES: Feature[] = [
   bargains, // side project: bargain finder. Turn off with VITE_FEATURE_BARGAINS=off
+  bag, // the bag + simulated Visa-only checkout. Turn off with VITE_FEATURE_BAG=off
 ].filter((f) => f.enabled);

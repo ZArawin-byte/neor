@@ -1,6 +1,8 @@
-# NEor: team rules for every Claude Code session
+# neor: team rules for every Claude Code session
 
-NEor is an AI wardrobe and styling app for DubHacks 2026, entered in Visa's "Reimagine Shopping" track. **Submissions are due Sun 18 Oct 2026 at 10:30 AM PT.** Prefer working and honest over clever.
+**The name is always written in lowercase: neor.** Never NEor, Neor or NEOR, in code, copy, docs or commits.
+
+neor is an AI wardrobe and styling app for DubHacks 2026, entered in Visa's "Reimagine Shopping" track. **Submissions are due Sun 18 Oct 2026 at 10:30 AM PT.** Prefer working and honest over clever.
 
 - Backend: FastAPI in `app/`. Data goes to Supabase when its keys are set, otherwise to a local JSON file (demo mode, no keys needed).
 - Frontend: React and Vite in `frontend/`. It's already built; see `frontend/FRONTEND_SPEC.md`.
@@ -30,7 +32,7 @@ The frontend reads the response shapes in `frontend/src/lib/types.ts` and `front
 | Lane | Person | Owns |
 |---|---|---|
 | AI | Zahra (`be/ai`) | `app/ai.py`, `app/ai_schemas.py`, `app/stylist.py`, `app/insights.py`, `app/context/*` (weather, places, care knowledge), `app/vision.py`, `app/routers/ai_routes.py`, `tests/test_ai*.py`, `scripts/ai_*.py`, `docs/AI.md`, `frontend/src/features/care-label/` |
-| Core | Yarexzi (`be/core`) | `app/store.py`, `app/schemas.py`, `app/uploads.py`, `app/budget.py`, `app/payments.py`, `app/importer.py`, `app/routers/{meta,profile,items,commerce,saved}.py`, `supabase/`, `scripts/seed_demo.py`, `render.yaml`, `README.md`, `docs/TRUST.md`, `tests/test_core*.py`, `frontend/src/lib/saved.ts`, `frontend/src/features/bag/` |
+| Core | Yarexzi (`be/core`) | `app/store.py`, `app/schemas.py`, `app/uploads.py`, `app/budget.py`, `app/payments.py`, `app/importer.py`, `app/routers/{meta,profile,items,commerce,bag,saved}.py`, `app/rate_limit.py`, `supabase/`, `scripts/seed_demo.py`, `render.yaml`, `README.md`, `docs/TRUST.md`, `tests/test_core*.py`, `frontend/src/lib/saved.ts`, `frontend/src/features/bag/` |
 
 Shared files: edit only your own marked section, and keep the change small.
 - `app/main.py`: only the `include_router` lines under your lane's comment. The core lane may also add app-wide middleware there, such as rate limits matched by URL path, but never by editing AI-lane routers.

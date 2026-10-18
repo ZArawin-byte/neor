@@ -543,11 +543,11 @@ def test_label_with_perceptron_and_regex(client, monkeypatch):
     item = client.post("/api/items", data={"meta": '{"name": "Jumper", "category": "top"}'}).json()
     out = _label(client, item_id=item["id"]).json()
     assert out["ai"] == "perceptron" and out["fiber_composition"][0] == {"fiber": "wool", "percent": 80.0}
-    assert out["care_steps"][0] == "Hand wash only (label)." and out["saved_to_item"] is True
+    assert out["care_steps"][0] == "Hand wash only, 30°C or below (label)." and out["saved_to_item"] is True
     saved = next(i for i in client.get("/api/items").json() if i["id"] == item["id"])
     assert saved["fibers"][1]["fiber"] == "nylon" and "WOOL" in saved["care_label"]
     care = client.post("/api/ai/care", json={"item_id": item["id"]}).json()
-    assert care["care_basis"] == "care label" and care["care_steps"][0] == "Hand wash only (label)."
+    assert care["care_basis"] == "care label" and care["care_steps"][0] == "Hand wash only, 30°C or below (label)."
 
 
 def test_label_model_only_fills_what_regex_missed(client, fake, monkeypatch):
@@ -588,3 +588,24 @@ def test_label_never_saves_to_someone_elses_item(client, as_user, monkeypatch):
     assert _label(client, item_id=item["id"]).json()["saved_to_item"] is False
     as_user("alice")
     assert "care_label" not in next(i for i in client.get("/api/items").json() if i["id"] == item["id"])
+
+
+COSTCO = ("MACHINE WASH COLD WITH LIKE COLORS. ONLY NON-CHLORINE BLEACH WHEN NEEDED. TUMBLE DRY LOW. "
+          "COOL IRON IF NEEDED. DO NOT IRON ON DECORATION. DO NOT DRY CLEAN.\n\n"
+          "LAVAR A MAQUINA CON AGUA FRIA Y COLORES SIMILARES. NO LIMPIAR A SECO.")
+
+
+def test_real_label_qualifiers_are_kept():
+    """A real label (read by Perceptron): 'do not iron ON DECORATION' must not become 'do not iron'."""
+    from app.vision import label_phrases, parse_label
+
+    fibers, care = parse_label(COSTCO)
+    assert fibers == []  # this tag has no composition; it lives on another tag
+    assert care == {"wash_temp_c": 30, "machine_wash": True, "bleach": True, "tumble_dry": True, "iron": True,
+                    "dry_clean": False}
+    assert label_phrases(COSTCO) == [
+        "Machine wash cold (label).", "Wash with similar colours (label).",
+        "Only non-chlorine bleach, and only when needed (label).", "Tumble dry low (label).",
+        "Cool iron if needed (label).", "Don't iron over the decoration or print (label).",
+        "Do not dry clean (label)."]
+    assert parse_label("DO NOT IRON.")[1]["iron"] is False

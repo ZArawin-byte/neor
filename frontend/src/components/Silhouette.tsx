@@ -2,7 +2,7 @@ import { mix } from "../lib/color";
 import type { Silhouette as Shape } from "../lib/racks";
 
 /** Flat garment drawings for items without a photo (starter closet, shop items). viewBox 0 0 100 100. */
-const PATHS: Record<Shape, { body: string; detail?: string }> = {
+export const PATHS: Record<Shape, { body: string; detail?: string }> = {
   tee: { body: "M31 14 L42 10 Q50 17 58 10 L69 14 L88 30 L78 41 L70 35 L70 89 L30 89 L30 35 L22 41 L12 30 Z", detail: "M42 10 Q50 20 58 10" },
   shirt: { body: "M32 12 L44 8 L50 17 L56 8 L68 12 L84 26 L92 79 L82 81 L72 41 L72 90 L28 90 L28 41 L18 81 L8 79 L16 26 Z", detail: "M50 17 L50 90 M44 8 L50 20 L56 8" },
   tank: { body: "M36 10 L40 10 Q42 27 50 27 Q58 27 60 10 L64 10 Q66 28 72 35 L72 90 L28 90 L28 35 Q34 28 36 10 Z" },

@@ -260,9 +260,15 @@ Mixing warm and cool costs 4 points.
 - `POST /api/ai/weak-spots` → a versatility score out of 100, a summary, and gaps. Each gap has a priority, roughly how many outfits it unlocks, and 1–2 catalog pieces with **Try it on the table**.
 - A local **Essentials** checklist is always shown, and works with the AI off: a plain light top, dark bottoms, a neutral layer, walkable shoes, something warm, one dressy piece, a bag.
 
-**Archive** (`/archive`)
-- Polaroid-style cards: the mirror photo with stickers alongside, or stickers alone, plus date, occasion, harmony and verdict.
-- A star toggles favourite. Filter between **All** and **Favourites**. Each card can be deleted.
+**Archive** (`/archive`, "All outfits")
+- **The board:** a cork bulletin board in a wooden frame. Every look saved from the mirror is pinned up as a fashion sketch on paper (`components/OutfitSketch.tsx`): a pencil croquis, each garment in graphite with a watercolour wash of its colour, and photo cut-outs as charcoal prints.
+- **Placement:** pieces sit where the mirror try-on put them, or by type (tops at the chest, shoes at the feet).
+- **Decoration:** papers are pinned or taped at a stable tilt. Fabric scraps, buttons and a measuring tape are pinned between them.
+- **Filter:** a dropdown next to the title: recently added, highest rated, 5 stars only, 4 and up, not rated.
+- **Ratings:** each paper has 1–5 stars to click (`Look.rating`). Click the same star again to clear it.
+- **Paging:** brass arrows on either side page through the board. It holds 8 papers on desktop, 6 on laptops, 4 on tablets and 2 on phones. The keyboard arrow keys work too.
+- **Detail:** click a sketch to see it larger, with its stars, date, colour verdict, the pieces in it, the mirror photo, and Remove.
+- **In the room:** the archive is the cork board under the market painting.
 
 **Profile** (`/profile`)
 - Name (`PUT /api/profile`), piece count and points.
@@ -348,12 +354,55 @@ A sticky save bar shows when there are unsaved changes. The profile page also ha
 
 Optional features plug in through `src/features/index.ts`. Each feature declares its routes and an optional `HallwayNotice`. The router and the hallway render whatever is in that list, and nothing else in the app knows about the feature.
 
-**Bargain finder** (`src/features/bargains/`)
-- **In the hallway:** a kraft-paper notice pinned next to the sign-in card, linking to `/bargains`. That page is public, so no sign-in is needed to open it.
-- **The page:** search a city and get a list of nearby thrift, vintage and boutique shops, each with a map link.
-- **The data seam:** `source.ts` → `findBargains(city)`. It currently uses `/api/ai/places` and keeps the clothing shops. Plug the real bargain service in there, using the `Bargain` shape (`price` and `url` are supported).
-- **To hide it:** set `VITE_FEATURE_BARGAINS=off` in `frontend/.env`.
-- **To remove it:** delete `src/features/bargains/` and its line in `src/features/index.ts`.
+**The bargain market** (`src/features/bargains/`, backend `app/souq.py`)
+
+There are two ways in: the market painting in the room, and the kraft-paper notice in the hallway. Both open `/bargains`. The page can be opened without signing in, but its API calls need a session when Supabase is on, and it asks you to sign in if one is missing. It uses Neor's look plus a market stall layer: a striped scalloped awning, stall-sign steps, paper price tags and a lined ledger book.
+
+**Price check** is the main flow, all on one page:
+1. **Upload:** a photo of the thing in front of you, or type its name.
+2. **Identify:** Vision suggests a name, which you can edit.
+3. **Estimate:** `POST /api/souq/estimate` returns a verdict in the local currency: *open at*, *aim for low–high*, *walk away above*, a confidence level, and the reasons in words.
+4. **Map:** red price tags where people paid for this item nearby, refreshed every 30s through the key-free `POST /api/souq/paid`, plus pins for shops near you that sell it.
+5. **The same, or close to it:** listings with photos, flagged when the seller has a branch on the map ("Fred Meyer nearby").
+
+How the estimate is worked out (`verdict()` in `app/souq.py`):
+- **Online prices:** SerpAPI's `extracted_price` for new-condition listings, with outliers removed (Tukey fences).
+- **Local prices:** ledger reports within 30km whose name shares at least half the query's words, in the same currency.
+- **Three or more local prices:** the range is their middle half.
+- **One or two local prices:** they're blended with the cheaper half of online prices.
+- **No local prices:** the range is the cheaper half of online prices.
+- **Open at:** 75% of the low end.
+- **Walk away above:** the higher of 110% of the high end and the top quarter of online prices. When locals set the range, it's 125% of the high end instead.
+- **Rounding:** prices are rounded to what you'd actually say at a stall.
+
+The place sets the currency: city search and device location both return a country code.
+
+The individual endpoints:
+
+| Step | What it does | Endpoint | Needs a key? |
+|---|---|---|---|
+| 01 Identify a find | Photo → suggested name, brand and model (all editable), pages with the same picture, similar images. Then compare prices or log what you paid. | `POST /api/souq/identify` | `GOOGLE_VISION_API_KEY`. Without it you type the details yourself. |
+| 02 Compare offers | Online listings with price tags, sorting (match, price, rating), secondhand / free-delivery filters and a listed-price range. | `POST /api/souq/shopping` | `SERPAPI_API_KEY`. Without it, three cards clearly marked **Sample** show the layout. |
+| 03 Shops nearby | Pick a place (city search or device location, rounded to about 100m and remembered on the device). See clothing, thrift, shoe, bag, market and gift shops within about 3km on a map, with directions and websites. | `POST /api/souq/geocode`, `/nearby` (OpenStreetMap), `/stores` (Google Maps via SerpAPI) | None. OpenStreetMap is free; SerpAPI adds search by name. |
+| 04 The price ledger | Per shop: what people actually paid, grouped by product and currency. Shows median, low to high, the date, haggle percentage, notes and photos. Add with **Log what you paid**; remove your own. | `GET/POST /api/souq/reports`, `DELETE /api/souq/reports/{id}` | None. |
+
+Honesty rules carried over from the original:
+- An online offer never confirms a shop has it in stock.
+- Paid prices are kept separate from advertised ones.
+- Currencies and unknown variants are never merged.
+- Samples are always labelled.
+- Only the item, shop, price and date are required when logging a price. Brand, model, variant, asking price, notes and photo are optional.
+
+Storage:
+- **Locally:** reports live in `data/local_db.json`, under `souq_reports`.
+- **With Supabase:** run the `souq_reports` block in `supabase/schema.sql`. Every signed-in user can read reports, and only the author can change or delete theirs.
+- **Duplicates:** a `submission_id` per form makes double submits harmless.
+- **Forget me:** also deletes your reports.
+- **Map search speed:** OpenStreetMap shop search can take 20–30 seconds on the public server. Results are cached for 15 minutes.
+
+Switching it off:
+- **To hide it:** set `VITE_FEATURE_BARGAINS=off` in `frontend/.env`. This also takes down the painting.
+- **To remove it:** delete `src/features/bargains/` and its line in `src/features/index.ts`, plus `app/souq.py` and its `include_router` line in `app/main.py`.
 
 ## 15. Add from a link, and mirror try-on
 
@@ -366,3 +415,36 @@ Optional features plug in through `src/features/index.ts`. Each feature declares
 - **Adjusting:** tap a placed piece for the toolbar: smaller, bigger, rotate, bring to front, remove. Drag a piece off the mirror to take it off.
 - **Saving:** the layout is kept on the device (`neor.tryon`). **Save this fit** stores it with the look, and the archive card draws it over the photo. The mirror is a fixed 9:20 shape so the positions line up.
 - **How dropping works:** pieces are placed under the pointer, not by the dragged item's box. Auto-scroll is limited to a thin band at the window edge, otherwise dropping shoes near the bottom of the mirror scrolled the page away.
+
+## 16. Lazy mode (`/lazy`, backend `app/lazy.py`)
+
+The LAZY MODE plate on the second shelf (hover: "Just input your Google Calendar and your location and you'll receive outfits based off the climate and events.") and the **Lazy** tab both open `/lazy`.
+
+**Signing up**
+
+1. **Where you'll be:** a city search (Open-Meteo geocoding, free) or the device's location. The place sets the time zone, so 7am means 7am there, and the units (°F in the US).
+2. **Google Calendar, optional:** the calendar's *secret iCal address*, from Google Calendar → Settings → your calendar → Integrate calendar. It's treated like a password: kept on the server, fetched only through the public-host guard in `app/net.py`, and never returned to the browser.
+3. **Phone and send time:** with an explicit consent box mentioning STOP. A new number gets one welcome text with opt-out instructions.
+
+A phone mock-up previews the real message before you sign up. Once you're signed up, the page shows a status card with **Send me one now** (at most one a minute), Pause/Resume, Change settings, a log of recent texts, and **Stop and delete my details**.
+
+**Each morning**
+
+The scheduler checks once a minute and sends at most one text per day, within 2 hours of your time. It builds the message from:
+1. **Weather:** today's Open-Meteo forecast.
+2. **Calendar:** today's events, including repeating ones.
+3. **Occasion:** the most formal one of the day (wedding > work or class > party/dinner > everyday > gym), plus a "pack gym clothes" line when there's a workout as well.
+4. **Outfit:** `ai.outfit` from your closet, minus the laundry basket.
+5. **Tips:** rain or cold advice when it applies.
+
+Example: *"Neor · Sun Oct 18: overcast, 43–57°F. Today: 9am Standup; 7pm Dinner with Sam. Wear: Navy Hoodie, Black Skinny Jeans, Denim Jacket, Canvas Sneakers. Reply STOP to stop."*
+
+**SMS**
+- **Sending:** set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_FROM` (a number, or a Messaging Service SID starting MG) in the root `.env`.
+- **Without them:** texts are written to the server log and to the user's outbox, marked *logged*.
+- **Trial accounts:** a Twilio trial can only text numbers verified in the Twilio console.
+- **STOP:** handled by Twilio's opt-out on its end. The page's "Stop and delete" removes everything here.
+
+**Storage:** local `data/local_db.json` under `lazy`, or the `lazy_subscriptions` table in `supabase/schema.sql`. "Forget me" deletes it.
+
+**Limits:** the scheduler runs inside the API process, so run a single worker. If the server is off at send time, that morning's text is skipped.

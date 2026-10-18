@@ -11,13 +11,14 @@ import "../styles/room.css";
  * tags are positioned in the same coordinates, as percentages of the stage.
  */
 const SPOTS: Record<SpotId, { to: string; title: string; blurb: string; at: [number, number]; side: "left" | "right" | "below" }> = {
-  archive: { to: "/archive", title: "Archival looks", blurb: "Every look you have saved, favourites first.", at: [425, 62], side: "right" },
-  profile: { to: "/profile", title: "Profile", blurb: "Age, fit, faith and style: what Neor should know about you.", at: [445, 150], side: "right" },
+  archive: { to: "/archive", title: "The archive", blurb: "Every outfit you have saved, sketched and pinned to the board.", at: [1104, 600], side: "below" },
+  profile: { to: "/profile", title: "Profile", blurb: "Age, fit, faith and style: what Neor should know about you.", at: [300, 150], side: "right" },
+  lazy: { to: "/lazy", title: "Lazy mode", blurb: "Just input your Google Calendar and your location and you'll receive outfits based off the climate and events.", at: [470, 158], side: "right" },
   closet: { to: "/closet", title: "Closet", blurb: "Your creative space: everything you own, ready to mix.", at: [565, 330], side: "right" },
   window: { to: "/window", title: "Window", blurb: "A map of cafes and photo spots, with outfits to match each one.", at: [800, 596], side: "below" },
   lion: { to: "/critique", title: "The lion", blurb: "A closet critique, and the essentials you may be missing. Right-click to see him in action.", at: [728, 470], side: "left" },
   mirror: { to: "/mirror", title: "Mirror", blurb: "Upload a photo and try on whatever is on your table.", at: [1216, 300], side: "left" },
-  market: { to: "/bargains", title: "Bargain market", blurb: "Good clothes going cheap around you this week.", at: [1100, 470], side: "below" },
+  market: { to: "/bargains", title: "Bargain market", blurb: "Good clothes going cheap around you this week.", at: [1022, 290], side: "left" },
 };
 
 export default function Room() {

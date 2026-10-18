@@ -9,7 +9,7 @@ import { MASCOT } from "../lib/mascot";
  * Each clickable object is a <Hot> group; Room.tsx supplies the handlers and the tags.
  */
 
-export type SpotId = "archive" | "profile" | "closet" | "window" | "lion" | "mirror" | "market";
+export type SpotId = "archive" | "profile" | "closet" | "window" | "lion" | "mirror" | "market" | "lazy";
 
 // Back wall rectangle. Everything else is built from these four edges.
 const BW = { l: 600, r: 1000, t: 230, b: 590 };
@@ -208,7 +208,7 @@ const slopeR = (v: number) => -(BW.t / BW.l) * (1 - v) + ((900 - BW.b) / BW.l) *
  * finder. Drawn in the wall's own perspective; (u, v) run 0-1 across the canvas.
  */
 function MarketPainting() {
-  const P = (u: number, v: number) => Rw(1030 + u * 152, 0.2 + v * 0.33);
+  const P = (u: number, v: number) => Rw(1030 + u * 152, 0.11 + v * 0.29);
   const poly = (pts: [number, number][]) => quad(...pts.map(([u, v]) => P(u, v)));
   const rect = (u0: number, v0: number, u1: number, v1: number) => poly([[u0, v0], [u1, v0], [u1, v1], [u0, v1]]);
   const ell = (u: number, v: number, ru: number, rv: number) =>
@@ -221,7 +221,7 @@ function MarketPainting() {
   const cloth = ["#26324f", "#e9b7bd", "#9caf88", "#f3ede0", "#a4532f", "#6b6b3a", "#c3b1e1", "#1d1d1f"];
   const shoppers: [number, number, string][] = [[0.2, 0.72, "#2f3b2f"], [0.51, 0.75, "#5c1e1d"], [0.83, 0.71, "#26324f"]];
   const [lx, ly] = P(0.12, 1.12);
-  const lv = 0.2 + 1.12 * 0.33;
+  const lv = 0.11 + 1.12 * 0.29;
   return (
     <g>
       <path d={rect(-0.08, -0.1, 1.08, 1.1)} fill="#000" opacity="0.35" filter="url(#soft)" />
@@ -369,6 +369,68 @@ function Bowtie() {
   );
 }
 
+/**
+ * The archive: a cork board under the market painting, with outfit sketches and scraps of
+ * fabric pinned to it. Drawn in the right wall's perspective; (u, v) run 0-1 across the cork.
+ */
+function ArchiveBoard() {
+  const B = (u: number, v: number) => Rw(1036 + u * 146, 0.53 + v * 0.26);
+  const poly = (pts: [number, number][]) => quad(...pts.map(([u, v]) => B(u, v)));
+  const rect = (u0: number, v0: number, u1: number, v1: number) => poly([[u0, v0], [u1, v0], [u1, v1], [u0, v1]]);
+  const line = (pts: [number, number][]) => "M" + pts.map(([u, v]) => B(u, v).join(" ")).join(" L");
+  const ell = (u: number, v: number, ru: number, rv: number) =>
+    poly(Array.from({ length: 10 }, (_, i) => [u + ru * Math.cos((i / 10) * Math.PI * 2), v + rv * Math.sin((i / 10) * Math.PI * 2)] as [number, number]));
+
+  // a sheet with a croquis and two garments on it; [u0, v0, u1, v1] is where it's pinned
+  const sheets: { box: [number, number, number, number]; top: string; bottom: string; skirt: boolean; pin: string }[] = [
+    { box: [0.05, 0.08, 0.29, 0.66], top: "#a4532f", bottom: "#e8dfcc", skirt: false, pin: "#b8372e" },
+    { box: [0.36, 0.16, 0.58, 0.74], top: "#e9b7bd", bottom: "#2f3b2f", skirt: true, pin: "#2f6b6a" },
+    { box: [0.65, 0.06, 0.88, 0.6], top: "#7d9cc4", bottom: "#d98fa0", skirt: true, pin: "#c98a2e" },
+  ];
+  const sketch = ({ box: [u0, v0, u1, v1], top, bottom, skirt, pin }: (typeof sheets)[number], i: number) => {
+    const L = (su: number, sv: number): [number, number] => [u0 + su * (u1 - u0), v0 + sv * (v1 - v0)];
+    return (
+      <g key={i}>
+        <path d={rect(u0 + 0.01, v0 + 0.02, u1 + 0.01, v1 + 0.02)} fill="#000" opacity="0.25" />
+        <path d={rect(u0, v0, u1, v1)} fill="#f7f2e7" />
+        <path d={ell(...L(0.5, 0.13), (u1 - u0) * 0.08, (v1 - v0) * 0.06)} fill="none" stroke="#8a8278" strokeWidth="0.7" />
+        <path d={line([L(0.42, 0.62), L(0.4, 0.94)]) + " " + line([L(0.58, 0.62), L(0.6, 0.94)])} fill="none" stroke="#8a8278" strokeWidth="0.7" />
+        <path d={poly([L(0.28, 0.24), L(0.72, 0.24), L(0.67, 0.52), L(0.33, 0.52)])} fill={top} opacity="0.85" />
+        <path d={skirt ? poly([L(0.37, 0.52), L(0.63, 0.52), L(0.74, 0.78), L(0.26, 0.78)]) : poly([L(0.35, 0.52), L(0.65, 0.52), L(0.62, 0.86), L(0.38, 0.86)])} fill={bottom} opacity="0.85" />
+        <path d={line([L(0.28, 0.24), L(0.72, 0.24)])} stroke="#3a3530" strokeWidth="0.8" />
+        <path d={ell(...L(0.5, 0.0), 0.012, 0.018)} fill={pin} />
+      </g>
+    );
+  };
+
+  const [lx, ly] = B(0.3, 1.1);
+  const lv = 0.53 + 1.1 * 0.26;
+  return (
+    <g>
+      <path d={rect(-0.06, -0.08, 1.06, 1.08)} fill="#000" opacity="0.35" filter="url(#soft)" />
+      <path d={rect(-0.05, -0.07, 1.05, 1.07)} fill="#5a3a22" />
+      <path d={rect(-0.05, -0.07, 1.05, 1.07)} fill="url(#oakGrad)" opacity="0.5" />
+      <path d={rect(0, 0, 1, 1)} fill="#b0814f" />
+      <path d={rect(0, 0, 1, 1)} fill="#000" filter="url(#cork)" />
+      {/* fabric scraps first, so the sketches overlap them */}
+      <path d={rect(0.04, 0.7, 0.2, 0.94)} fill="#f3e6cc" />
+      {[0.73, 0.79, 0.85, 0.91].map((v) => <path key={v} d={line([[0.04, v], [0.2, v]])} stroke="#b8372e" strokeWidth="1.6" opacity="0.6" />)}
+      {[0.07, 0.11, 0.15, 0.19].map((u) => <path key={u} d={line([[u, 0.7], [u, 0.94]])} stroke="#b8372e" strokeWidth="1.6" opacity="0.6" />)}
+      <path d={rect(0.6, 0.7, 0.8, 0.95)} fill="#e8dcc6" />
+      {[0.62, 0.68, 0.74].map((u) => <path key={u} d={line([[u, 0.7], [u + 0.06, 0.95]])} stroke="#2f6b6a" strokeWidth="2.4" />)}
+      <path d={rect(0.84, 0.62, 0.98, 0.86)} fill="#3b4a7a" />
+      {[[0.87, 0.67], [0.93, 0.72], [0.88, 0.8], [0.95, 0.83]].map(([u, v]) => <path key={u + "" + v} d={ell(u, v, 0.012, 0.022)} fill="#e9b7bd" />)}
+      {sheets.map(sketch)}
+      <path d={ell(0.12, 0.7, 0.012, 0.018)} fill="#7a2a5a" />
+      <path d={ell(0.7, 0.7, 0.012, 0.018)} fill="#b8372e" />
+      <g transform={`translate(${lx} ${ly}) matrix(1 ${slopeR(lv)} 0 1 0 0)`}>
+        <rect width="96" height="20" rx="3" fill="url(#brassPlate)" stroke="#6b4c16" strokeWidth="1" />
+        <text x="48" y="14" textAnchor="middle" className="plate-text">ARCHIVE</text>
+      </g>
+    </g>
+  );
+}
+
 function SideTable() {
   return (
     <g>
@@ -412,15 +474,19 @@ export function WardrobeScene({ onLionContext, showMarket = false, ...props }: O
       <path d={`M${Lw(44, v + 0.0135).join(" ")} L${Lw(536, v + 0.0135).join(" ")}`} stroke="#ffe2a2" strokeWidth="2.5" filter="url(#glowLine)" />
     </>
   );
-  const plate = (x: number, v: number, label: string) => (
-    <g className="plate" transform={`translate(${Lw(x, v).join(" ")}) matrix(1 ${slopeAt(v)} 0 1 0 0) scale(${(scaleAt(x) * 1.2).toFixed(3)})`}>
-      <rect x="-2" y="-1" width="112" height="30" rx="4" fill="#000" opacity="0.35" />
-      <rect width="108" height="26" rx="3" fill="url(#brassPlate)" stroke="#6b4c16" strokeWidth="1" />
-      <circle cx="7" cy="13" r="1.8" fill="#6b4c16" />
-      <circle cx="101" cy="13" r="1.8" fill="#6b4c16" />
-      <text x="54" y="17.5" textAnchor="middle" className="plate-text">{label}</text>
-    </g>
-  );
+  // plates grow with their label, so "LAZY MODE" fits as well as "PROFILE"
+  const plate = (x: number, v: number, label: string) => {
+    const w = Math.max(108, Math.round(label.length * 11.5 + 26));
+    return (
+      <g className="plate" transform={`translate(${Lw(x, v).join(" ")}) matrix(1 ${slopeAt(v)} 0 1 0 0) scale(${(scaleAt(x) * 1.2).toFixed(3)})`}>
+        <rect x="-2" y="-1" width={w + 4} height="30" rx="4" fill="#000" opacity="0.35" />
+        <rect width={w} height="26" rx="3" fill="url(#brassPlate)" stroke="#6b4c16" strokeWidth="1" />
+        <circle cx="7" cy="13" r="1.8" fill="#6b4c16" />
+        <circle cx={w - 7} cy="13" r="1.8" fill="#6b4c16" />
+        <text x={w / 2} y="17.5" textAnchor="middle" className="plate-text">{label}</text>
+      </g>
+    );
+  };
 
   return (
     <svg className="wardrobe" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Inside the wardrobe">
@@ -472,6 +538,11 @@ export function WardrobeScene({ onLionContext, showMarket = false, ...props }: O
           <stop offset="0.4" stopColor="#ffc56e" stopOpacity="0.35" />
           <stop offset="1" stopColor="#ffb347" stopOpacity="0" />
         </radialGradient>
+        <filter id="cork" x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="11" />
+          <feColorMatrix values="0 0 0 0 0.25  0 0 0 0 0.14  0 0 0 0 0.05  0 0 0 1.5 -0.6" />
+          <feComposite in2="SourceGraphic" operator="in" />
+        </filter>
         <radialGradient id="hotGlow">
           <stop offset="0" stopColor="#ffd796" stopOpacity="1" />
           <stop offset="0.6" stopColor="#ffd796" stopOpacity="0.45" />
@@ -565,22 +636,24 @@ export function WardrobeScene({ onLionContext, showMarket = false, ...props }: O
       </Hot>
 
       {/* shelves: archive on top, profile below */}
-      <Hot id="archive" label="Archive: every look you have saved" {...props}>
-        {litShelf(0.13)}
-        <path d={box(70, 190, 0.13, 0.07)} fill="#6e2a20" />
-        <path d={box(200, 300, 0.13, 0.055)} fill="#2f3b2f" />
-        <path d={box(310, 400, 0.13, 0.065)} fill="#7a5a3a" />
-        {plate(86, 0.084, "ARCHIVE")}
-        <path className="hot-glow" d={quad(Lw(60, 0.05), Lw(420, 0.05), Lw(420, 0.15), Lw(60, 0.15))} />
-      </Hot>
+      {/* top shelf: hat boxes and folded knits */}
+      {litShelf(0.13)}
+      <path d={box(70, 190, 0.13, 0.07)} fill="#6e2a20" />
+      <path d={box(200, 300, 0.13, 0.055)} fill="#2f3b2f" />
+      <path d={box(310, 400, 0.13, 0.065)} fill="#7a5a3a" />
 
+      {/* second shelf: profile on the left, lazy mode on the right */}
+      {litShelf(0.25)}
       <Hot id="profile" label="Profile: what Neor should know about you" {...props}>
-        {litShelf(0.25)}
         <path d={box(80, 200, 0.25, 0.06)} fill="#a58a62" />
-        <path d={box(215, 330, 0.25, 0.07)} fill="#4a2f22" />
-        <path d={box(345, 420, 0.25, 0.05)} fill="#6e2a20" />
-        {plate(222, 0.206, "PROFILE")}
-        <path className="hot-glow" d={quad(Lw(60, 0.17), Lw(440, 0.17), Lw(440, 0.27), Lw(60, 0.27))} />
+        <path d={box(215, 320, 0.25, 0.07)} fill="#4a2f22" />
+        {plate(205, 0.206, "PROFILE")}
+        <path className="hot-glow" d={quad(Lw(60, 0.17), Lw(325, 0.17), Lw(325, 0.27), Lw(60, 0.27))} />
+      </Hot>
+      <Hot id="lazy" label="Lazy mode: outfits by text, from your calendar and the weather" {...props}>
+        <path d={box(335, 480, 0.25, 0.065)} fill="#2f3b4f" />
+        {plate(338, 0.205, "LAZY MODE")}
+        <path className="hot-glow" d={quad(Lw(330, 0.17), Lw(490, 0.17), Lw(490, 0.27), Lw(330, 0.27))} />
       </Hot>
 
       <Hot id="closet" label="Closet: everything you own, ready to mix" {...props}>
@@ -598,7 +671,7 @@ export function WardrobeScene({ onLionContext, showMarket = false, ...props }: O
       {showMarket && (
         <Hot id="market" label="Bargain market: good clothes going cheap near you" {...props}>
           <MarketPainting />
-          <path className="hot-glow" d={quad(Rw(1018, 0.16), Rw(1194, 0.14), Rw(1194, 0.62), Rw(1018, 0.6))} />
+          <path className="hot-glow" d={quad(Rw(1018, 0.07), Rw(1194, 0.05), Rw(1194, 0.47), Rw(1018, 0.46))} />
         </Hot>
       )}
 
@@ -619,7 +692,13 @@ export function WardrobeScene({ onLionContext, showMarket = false, ...props }: O
         <image href={MASCOT.cutout} x="738" y="392" width="300" height="309" mask="url(#lionMask)" filter="url(#lamplit)" />
         <Bowtie />
         {MASCOT.name && <NamePlacard name={MASCOT.name} />}
-        <ellipse className="hot-glow" cx="886" cy="600" rx="230" ry="210" />
+        <ellipse className="hot-glow" cx="886" cy="600" rx="190" ry="200" />
+      </Hot>
+
+      {/* drawn after the lion so its hover area wins where they meet */}
+      <Hot id="archive" label="Archive: every outfit you have saved" {...props}>
+        <ArchiveBoard />
+        <path className="hot-glow" d={quad(Rw(1026, 0.5), Rw(1190, 0.49), Rw(1190, 0.84), Rw(1026, 0.83))} />
       </Hot>
 
       <SideTable />

@@ -478,7 +478,7 @@
 /* Make the label part of the click target */
 .studio-left-head .basket-body { display: flex; align-items: center; }
 
-/* A shorter table on desktop, so Neor's suggestions are on screen without scrolling. */
+/* A shorter table on desktop, so neor's suggestions are on screen without scrolling. */
 @media (min-width: 981px) {
   .studio-right { max-height: calc(100vh - 28px); overflow-y: auto; scrollbar-width: thin; }
   .table-top { aspect-ratio: auto; min-height: 0; height: clamp(230px, 36vh, 360px); }

@@ -38,7 +38,7 @@ function proportionNotes(pieces: BoardPiece[]): string[] {
     else if (t === "roomy" && b === "fitted") notes.push("Relaxed on top, fitted below: the classic balanced silhouette.");
     else if (t === "fitted" && b === "roomy") notes.push("Fitted on top, fuller below. That draws a clear waistline.");
     else if (t === "fitted" && b === "fitted") notes.push("Sleek head to toe. A structured layer or a louder shoe gives it a focal point.");
-    else notes.push(`Neor can't tell the cut of "${t ? bottom.snap.name : top.snap.name}" from its name. Words like "wide" or "slim" in item names sharpen these notes.`);
+    else notes.push(`neor can't tell the cut of "${t ? bottom.snap.name : top.snap.name}" from its name. Words like "wide" or "slim" in item names sharpen these notes.`);
   } else if (dress) {
     notes.push(cutOf(dress.snap.name) === "roomy"
       ? "A fuller dress: balance it with a neater shoe and keep layers cropped."
@@ -127,7 +127,7 @@ export default function Mirror() {
     try {
       setRead(await api.outfit({ occasion, place: `wearing: ${pieces.map((p) => p.snap.name).join(", ")}` }));
     } catch {
-      say("Neor couldn't be reached just now. The colour and fit notes still stand.");
+      say("neor couldn't be reached just now. The colour and fit notes still stand.");
     } finally {
       setReading(false);
     }
@@ -208,7 +208,7 @@ export default function Mirror() {
 
           <article className="card wide">
             <div className="card-head">
-              <h3>Neor's read</h3>
+              <h3>neor's read</h3>
               <div className="row">
                 <select value={occasion} onChange={(e) => setOccasion(e.target.value)} aria-label="Occasion">
                   {["everyday", "uni", "birthday", "wedding", "gym"].map((o) => <option key={o} value={o}>{o === "uni" ? "Class" : o[0].toUpperCase() + o.slice(1)}</option>)}
@@ -223,7 +223,7 @@ export default function Mirror() {
                 {read.scent && <p className="facts">Scent to match: {read.scent}</p>}
               </>
             ) : (
-              <p className="muted">Pick the occasion and Neor will tell you what's working and what to change, in light of your style profile.</p>
+              <p className="muted">Pick the occasion and neor will tell you what's working and what to change, in light of your style profile.</p>
             )}
 
             <h4>Finish it with</h4>

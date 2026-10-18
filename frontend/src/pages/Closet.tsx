@@ -60,7 +60,7 @@ export default function Closet() {
 
     if (e.over?.id === "basket" && d.kind === "piece" && d.piece.source === "closet") {
       patch(d.piece.id, { laundry: true });
-      say(<>{d.piece.name} is in the laundry basket. Neor won't suggest it until you put it back.</>);
+      say(<>{d.piece.name} is in the laundry basket. neor won't suggest it until you put it back.</>);
       return;
     }
     if (e.over?.id === "table" && pt) {

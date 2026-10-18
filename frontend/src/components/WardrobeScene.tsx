@@ -644,7 +644,7 @@ export function WardrobeScene({ onLionContext, showMarket = false, ...props }: O
 
       {/* second shelf: profile on the left, lazy mode on the right */}
       {litShelf(0.25)}
-      <Hot id="profile" label="Profile: what Neor should know about you" {...props}>
+      <Hot id="profile" label="Profile: what neor should know about you" {...props}>
         <path d={box(80, 200, 0.25, 0.06)} fill="#a58a62" />
         <path d={box(215, 320, 0.25, 0.07)} fill="#4a2f22" />
         {plate(205, 0.206, "PROFILE")}

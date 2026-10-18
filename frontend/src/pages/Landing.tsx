@@ -143,7 +143,7 @@ export default function Landing() {
             <Sconce side="left" />
             <Sconce side="right" />
             <div className="transom">
-              <span className="gilt">Neor</span>
+              <span className="gilt">neor</span>
             </div>
             <div className="doorway">
               <div className="beyond" aria-hidden="true">
@@ -163,7 +163,7 @@ export default function Landing() {
       <aside className="hall-side">
         <div className="entry-card">
           <span className="card-pin" aria-hidden="true" />
-          <p className="card-kicker">Neor · a Narnia-style wardrobe</p>
+          <p className="card-kicker">neor · a Narnia-style wardrobe</p>
           <h1>Come in. The lamps are on.</h1>
           <p className="card-copy">Step through the wardrobe, like the children in Narnia. Inside: your clothes, a mirror that tells the truth, and a lion with opinions.</p>
           {signedIn ? (

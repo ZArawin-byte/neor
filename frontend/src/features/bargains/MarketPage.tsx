@@ -275,9 +275,9 @@ export default function MarketPage() {
       {/* ------------------------------------------------ upload */}
       <section className={`mk-start ${photo || checked ? "is-compact" : ""}`}>
         <div className="mk-start-copy">
-          <p className="kicker">Neor · the bargain market</p>
+          <p className="kicker">neor · the bargain market</p>
           <h1>What should you<br /><em>pay for that?</em></h1>
-          <p>Snap the thing in front of you, a snow globe, a scarf, a brush. Neor works out what it's worth where you are, the range to accept, and where else nearby sells the same or similar.</p>
+          <p>Snap the thing in front of you, a snow globe, a scarf, a brush. neor works out what it's worth where you are, the range to accept, and where else nearby sells the same or similar.</p>
           {!place && <button className="link-back" onClick={() => setPicking(true)}><Icon name="pin" size={14} /> First, tell us where you're shopping</button>}
         </div>
 

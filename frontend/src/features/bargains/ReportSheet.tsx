@@ -150,7 +150,7 @@ export function ReportSheet({ open, shop, shops, currency, draft, onClose, onSav
 
           {error && <p className="error">{error}</p>}
           <button className="btn" disabled={saving}>{saving ? "Saving…" : "Add to the ledger"}</button>
-          <p className="facts">Everyone using Neor can see what you paid and at which shop. Your name isn't shown.</p>
+          <p className="facts">Everyone using neor can see what you paid and at which shop. Your name isn't shown.</p>
         </form>
       </aside>
     </div>

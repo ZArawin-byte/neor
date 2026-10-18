@@ -1,0 +1,459 @@
+/*
+ * The hallway: a lamp-lit corridor outside the wardrobe. Ogee wallpaper over painted
+ * panelling, oak double doors with a gilded transom, two brass sconces, chevron parquet
+ * and a runner rug leading to the doors. The wall is turned so the left door faces you.
+ */
+
+.hall {
+  --door-h: min(56vh, 540px);
+  --door-x: 41.4%; /* door centre, as a % of the floor plane's width - keeps the rug under it */
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #120c08;
+  color: var(--paper);
+  transition: background 0.6s 0.3s;
+}
+
+.hall-scene {
+  position: absolute;
+  inset: 0;
+  transform-origin: 37% 47%;
+  transition: transform 0.9s cubic-bezier(0.6, 0, 0.8, 0.4), opacity 0.6s ease 0.3s;
+}
+
+/* ---------------------------------------------------------------- wall */
+
+.hall-wall {
+  position: absolute;
+  z-index: 2;
+  inset: 0 -40vw 19vh 0;
+  transform: perspective(1500px) rotateY(17deg) translateX(-3%);
+  transform-origin: 18% 50%;
+  transition: transform 0.7s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+.paper {
+  position: absolute;
+  inset: 0 0 34% 0;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 35%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='96' viewBox='0 0 64 96'><g fill='none' stroke='%23c9a063' stroke-opacity='.17' stroke-width='1.3'><path d='M32 0C50 16 50 32 32 48C14 64 14 80 32 96'/><path d='M32 0C14 16 14 32 32 48C50 64 50 80 32 96'/><path d='M0 48C18 64 18 80 0 96M64 48C46 64 46 80 64 96M0 48C18 32 18 16 0 0M64 48C46 32 46 16 64 0'/></g><g fill='%23c9a063' fill-opacity='.2'><path d='M32 41l4 7-4 7-4-7z'/><path d='M0-7l4 7-4 7-4-7zM64-7l4 7-4 7-4-7zM0 89l4 7-4 7-4-7zM64 89l4 7-4 7-4-7z'/></g></svg>"),
+    #2a2019;
+  background-size: auto, 54px 81px, auto;
+}
+
+.dado {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 3.4vh;
+  height: calc(34% - 3.4vh);
+  display: flex;
+  gap: 1.1vw;
+  padding: 2.4vh 1vw 2vh;
+  background: linear-gradient(180deg, #3c4031, #33372a);
+  box-shadow: inset 0 14px 18px -10px rgba(0, 0, 0, 0.6);
+}
+/* Chair rail */
+.dado::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -9px;
+  height: 11px;
+  background: linear-gradient(180deg, #6f6449 0, #8b7f5f 30%, #4c4430 70%, #2f2a1d);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.45);
+}
+.panel {
+  position: relative;
+  flex: 1;
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.07), inset -2px -2px 0 rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+.panel::after {
+  content: "";
+  position: absolute;
+  inset: 16%;
+  box-shadow: inset -2px -2px 0 rgba(255, 255, 255, 0.06), inset 2px 2px 0 rgba(0, 0, 0, 0.3);
+}
+
+.skirting {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3.4vh;
+  background: linear-gradient(180deg, #6a5e43 0, #4a412e 18%, #2f281c);
+}
+
+/* ---------------------------------------------------------------- doorcase, transom, doors */
+
+.casing {
+  position: absolute;
+  left: 27%;
+  bottom: 0;
+  translate: -50% 0;
+  padding: 20px 20px 0;
+  background: linear-gradient(90deg, #cdbf9f, #eae0c9 22%, #ddd0b3 65%, #bba985);
+  box-shadow:
+    inset 0 0 0 3px #c4b38f, inset 0 0 0 5px #efe6d1, inset 0 0 0 8px #b09d78,
+    18px 0 40px rgba(0, 0, 0, 0.5);
+}
+/* Cornice over the door */
+.casing::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  right: -16px;
+  top: -18px;
+  height: 20px;
+  background: linear-gradient(180deg, #f1e9d6, #cdbf9f 60%, #a8966f);
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.35);
+}
+
+.transom {
+  position: relative;
+  height: calc(var(--door-h) * 0.17);
+  margin-bottom: 14px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 calc(25% - 3px), #3a2a17 calc(25% - 3px) 25%),
+    radial-gradient(ellipse at 50% 130%, #f6c46e, #b8722c 45%, #4a2608 100%);
+  box-shadow: inset 0 0 0 4px #3a2a17, inset 0 0 18px rgba(80, 40, 0, 0.6);
+}
+/* Signwriter's gilding on the glass */
+.gilt {
+  font: 400 calc(var(--door-h) * 0.105) / 1 var(--poster);
+  letter-spacing: 0.06em;
+  background: linear-gradient(180deg, #fff6cf 0%, #e8b955 42%, #8d5a14 52%, #e3b45a 70%, #fff0b8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1.5px 0 rgba(30, 14, 0, 0.95)) drop-shadow(0 0 1px rgba(30, 14, 0, 0.8)) drop-shadow(0 0 10px rgba(255, 210, 120, 0.45));
+}
+
+.doorway {
+  position: relative;
+  height: var(--door-h);
+  aspect-ratio: 600 / 720;
+  transform-style: preserve-3d;
+  perspective: 1400px;
+  background: #1d1209;
+}
+.beyond { position: absolute; inset: 0; overflow: hidden; }
+.beyond img { width: 100%; height: 100%; object-fit: cover; filter: brightness(1.1) saturate(1.05); }
+.beyond::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 45%, rgba(255, 214, 140, 0.5), rgba(255, 186, 90, 0.12) 60%, transparent);
+  mix-blend-mode: screen;
+}
+
+.seam {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  translate: -50% 0;
+  background: #ffd98a;
+  box-shadow: 0 0 12px 4px rgba(255, 196, 92, 0.6), 0 0 50px 14px rgba(255, 180, 70, 0.25);
+  transition: opacity 0.5s;
+}
+.doorway::after { /* light under the doors */
+  content: "";
+  position: absolute;
+  z-index: 3;
+  left: 3%;
+  right: 3%;
+  bottom: -1px;
+  height: 3px;
+  background: #ffd98a;
+  box-shadow: 0 0 14px 4px rgba(255, 196, 92, 0.7), 0 8px 40px 10px rgba(255, 180, 70, 0.3);
+  transition: opacity 0.4s;
+}
+
+.door {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  transition: transform 1.3s cubic-bezier(0.45, 0.05, 0.2, 1);
+}
+.door-left { left: 0; transform-origin: left center; }
+.door-right { right: 0; transform-origin: right center; }
+.door-face { position: absolute; inset: 0; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(30, 15, 4, 0.7); }
+.door-face svg, .door-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+/* Lever handle on a brass backplate */
+.escutcheon {
+  position: absolute;
+  top: 49%;
+  width: 9px;
+  height: 46px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #6b4c16, #e7c579 45%, #9a7428);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+.handle {
+  position: absolute;
+  z-index: 1;
+  top: calc(49% + 12px);
+  width: 30px;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #fff1c2, #c9a04a 50%, #6b4c16);
+  box-shadow: 0 3px 4px rgba(0, 0, 0, 0.45);
+}
+.door-left .escutcheon { right: 12px; }
+.door-left .handle { right: 14px; }
+.door-right .escutcheon { left: 12px; }
+.door-right .handle { left: 14px; }
+
+/* ---------------------------------------------------------------- sconces */
+
+.sconce { position: absolute; top: 32%; width: 46px; height: 96px; }
+.sconce-left { left: -104px; }
+.sconce-right { right: -104px; }
+.sconce-wash {
+  position: absolute;
+  left: 50%;
+  top: 20px;
+  width: 520px;
+  height: 680px;
+  translate: -50% -50%;
+  background: radial-gradient(ellipse at 50% 50%, rgba(255, 196, 110, 0.62), rgba(255, 168, 80, 0.2) 30%, rgba(255, 160, 70, 0.06) 50%, transparent 68%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+.sconce-plate {
+  position: absolute;
+  left: 50%;
+  top: 44px;
+  width: 16px;
+  height: 46px;
+  translate: -50% 0;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #6b4c16, #e7c579 45%, #8a6420);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5);
+}
+.sconce-arm {
+  position: absolute;
+  left: calc(50% - 2px);
+  top: 26px;
+  width: 4px;
+  height: 26px;
+  background: linear-gradient(90deg, #7a5a1e, #e0bd75, #7a5a1e);
+}
+.sconce-shade {
+  position: absolute;
+  left: 0;
+  top: -6px;
+  width: 46px;
+  height: 36px;
+  clip-path: polygon(24% 0, 76% 0, 100% 100%, 0 100%);
+  background:
+    repeating-linear-gradient(90deg, rgba(150, 90, 30, 0.18) 0 2px, transparent 2px 6px),
+    linear-gradient(180deg, #ffe7b4, #f6c06a 60%, #e29a3e);
+}
+
+/* ---------------------------------------------------------------- floor */
+
+.hall-floor {
+  position: absolute;
+  z-index: 1;
+  left: -60vw;
+  right: -60vw;
+  top: 52vh;
+  bottom: 0;
+  perspective: 700px;
+  perspective-origin: var(--door-x) 0%;
+  overflow: hidden;
+}
+.parquet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 260%;
+  transform-origin: 50% 100%;
+  transform: rotateX(72deg);
+  background:
+    linear-gradient(0deg, rgba(10, 5, 2, 0.6), transparent 30%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='72' height='36'><g stroke='%23301a08' stroke-opacity='.45' stroke-width='.8'><polygon points='0,0 36,18 36,36 0,18' fill='%23845530'/><polygon points='36,18 72,0 72,18 36,36' fill='%238f5d35'/></g><g fill='none' stroke='%23000' stroke-opacity='.08'><path d='M4 5 L32 19 M4 11 L32 25 M40 23 L68 9 M40 29 L68 15'/></g></svg>"),
+    #7d4f2b;
+  background-size: auto, 72px 36px, auto;
+}
+.runner {
+  position: absolute;
+  left: var(--door-x);
+  bottom: 0;
+  width: 17%;
+  height: 100%;
+  translate: -50% 0;
+  background:
+    linear-gradient(90deg,
+      #2e0b09 0 2.5%, #c39a55 2.5% 3.4%, #5e1714 3.4% 11%, #c39a55 11% 11.6%,
+      transparent 11.6% 88.4%,
+      #c39a55 88.4% 89%, #5e1714 89% 96.6%, #c39a55 96.6% 97.5%, #2e0b09 97.5%),
+    repeating-linear-gradient(0deg, transparent 0 70px, rgba(195, 154, 85, 0.35) 70px 73px, transparent 73px 140px),
+    #74201b;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.3);
+}
+.pool {
+  position: absolute;
+  left: var(--door-x);
+  bottom: 230px;
+  width: 30%;
+  height: 420px;
+  translate: -50% 0;
+  background: radial-gradient(ellipse at 50% 100%, rgba(255, 200, 110, 0.5), rgba(255, 180, 80, 0.12) 50%, transparent 72%);
+  mix-blend-mode: screen;
+  transition: opacity 0.8s, transform 1.2s;
+  opacity: 0.7;
+}
+
+.hall-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: radial-gradient(ellipse 75% 85% at 36% 48%, transparent 45%, rgba(8, 4, 1, 0.7) 100%);
+}
+/* A little film grain so the gradients don't look like a screen */
+.hall-grain {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='.55'/></svg>");
+}
+
+/* ---------------------------------------------------------------- the card pinned to the wall */
+
+.hall-side {
+  position: absolute;
+  z-index: 5;
+  right: clamp(24px, 6vw, 110px);
+  top: 50%;
+  translate: 0 -54%;
+  display: grid;
+  justify-items: end;
+  gap: 26px;
+  transition: opacity 0.5s, translate 0.5s;
+}
+
+.entry-card {
+  position: relative;
+  width: min(360px, 86vw);
+  padding: 34px 30px 26px;
+  background: var(--grain), linear-gradient(180deg, #f6eedd, #ece1ca);
+  color: var(--ink);
+  rotate: -1.2deg;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset, 0 34px 44px -22px rgba(0, 0, 0, 0.8), 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+.card-pin {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff1c2, #c9a04a 50%, #5e4210);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.45);
+}
+.card-kicker { margin: 0 0 12px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--oak-deep); }
+.entry-card h1 { margin: 0 0 10px; font: 400 30px/1.12 var(--display); letter-spacing: -0.01em; }
+.card-copy { margin: 0 0 22px; font-size: 15.5px; line-height: 1.55; color: var(--ink-2); }
+.card-fine { margin: 14px 0 0; font-size: 12.5px; color: var(--muted); }
+
+.btn-google,
+.btn-enter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 44px;
+  padding: 0 18px 0 14px;
+  border-radius: 4px;
+  font: 500 15px var(--sans);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.btn-google { background: #fff; color: #1f1f1f; border: 1px solid #dadce0; }
+.btn-google:hover { background: #f7f8f8; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); }
+.btn-enter { background: var(--ink); color: var(--paper); border: 0; padding: 0 26px; }
+.btn-enter:hover { background: var(--ink-2); }
+.btn-google:disabled, .btn-enter:disabled { opacity: 0.6; cursor: default; }
+
+.hall-side .bargain-notice { margin-right: 150px; }
+
+/* ---------------------------------------------------------------- the sequence */
+
+.phase-orient .hall-wall,
+.phase-open .hall-wall,
+.phase-enter .hall-wall { transform: perspective(1500px) rotateY(0deg) translateX(0); }
+.phase-orient .hall-side,
+.phase-open .hall-side,
+.phase-enter .hall-side { opacity: 0; translate: 24px -54%; pointer-events: none; }
+
+.phase-open .door-left, .phase-enter .door-left { transform: rotateY(-104deg); }
+.phase-open .door-right, .phase-enter .door-right { transform: rotateY(104deg); }
+.phase-open .seam, .phase-enter .seam,
+.phase-open .doorway::after, .phase-enter .doorway::after { opacity: 0; }
+.phase-open .pool, .phase-enter .pool { opacity: 1; transform: scaleX(1.6); }
+
+.phase-enter .hall-scene { transform: scale(3.2); opacity: 0; }
+.phase-enter { background: #e9c99a; }
+
+/* ---------------------------------------------------------------- phones */
+
+@media (max-width: 760px) {
+  .hall { --door-h: 38vh; --door-x: 50%; }
+  /* Wall ends higher so the doors stand clear of the card, which then sits on the rug. */
+  .hall-wall { inset: 0 -40vw 35vh 0; transform: perspective(1200px) rotateY(10deg); }
+  .casing { left: 35.7%; padding: 12px 12px 0; }
+  .sconce { display: none; }
+  .hall-floor { top: 46vh; }
+  .hall-scene { transform-origin: 50% 40%; }
+
+  .hall-side {
+    left: 14px;
+    right: 14px;
+    top: auto;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    translate: none; /* a transform here would trap the fixed notice below */
+    justify-items: stretch;
+  }
+  .phase-orient .hall-side, .phase-open .hall-side, .phase-enter .hall-side { translate: none; }
+  .entry-card { width: auto; padding: 24px 20px 18px; rotate: 0deg; }
+  .entry-card h1 { font-size: 23px; }
+  .card-copy { font-size: 14.5px; margin-bottom: 16px; }
+  .entry-card .btn-google, .entry-card .btn-enter { width: 100%; }
+  .card-fine { display: none; }
+
+  .hall-side .bargain-notice {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    width: 150px;
+    margin: 0;
+    padding: 18px 12px 10px;
+  }
+  .hall-side .bargain-notice span:not(.notice-pin):not(.notice-cta) { display: none; }
+  .hall-side .bargain-notice strong { font-size: 16px; }
+}
+
+@media (max-height: 560px) and (min-width: 761px) {
+  .entry-card { padding: 22px 22px 18px; }
+  .card-copy { display: none; }
+}

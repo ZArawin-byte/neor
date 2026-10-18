@@ -1,0 +1,110 @@
+.pf {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: start;
+  max-width: 1040px;
+}
+.pf-side { position: sticky; top: 16px; display: grid; gap: 14px; }
+.profile-photo {
+  aspect-ratio: 3 / 5;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 999px 999px 6px 6px;
+  background: var(--linen);
+  box-shadow: 0 0 0 8px #c49a64, 0 0 0 9px #8b6240;
+  margin: 9px;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+  padding: 0 20px;
+}
+.profile-photo img { width: calc(100% + 40px); height: 100%; object-fit: cover; }
+.pf-stats { margin: 0; font-size: 14px; color: var(--muted); text-align: center; }
+.pf-privacy { padding: 14px 16px; border-radius: 10px; background: var(--linen); }
+.pf-privacy h3 { margin: 0 0 6px; font: 400 17px var(--display); }
+.pf-privacy p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--ink-2); }
+
+.pf-form { display: grid; gap: 18px; }
+.pf-section {
+  margin: 0;
+  padding: 20px 22px 22px;
+  border: 0;
+  border-radius: 12px;
+  background: #fffaf2;
+  box-shadow: inset 0 0 0 1px var(--line);
+  min-width: 0;
+}
+.pf-section legend {
+  float: left;
+  width: 100%;
+  margin-bottom: 4px;
+  font: 400 21px var(--display);
+}
+.pf-note { clear: both; margin: 0 0 14px; font-size: 14px; color: var(--muted); }
+.pf-grid { clear: both; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; margin-top: 10px; }
+.pf-grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pf-field { display: grid; gap: 6px; align-content: start; }
+.pf-field.wide { margin-top: 16px; }
+.pf-field > span, .pf-label { font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+.pf-label { clear: both; margin: 18px 0 8px; }
+.pf-field .text-input, .pf-field select { width: 100%; height: 40px; font-size: 15px; }
+.pf-field textarea.text-input { height: auto; padding: 9px 10px; resize: vertical; font: inherit; }
+.pf-field .seg { width: fit-content; }
+.pf-field .seg button { height: 32px; padding: 0 14px; font-size: 14px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.chips .chip { height: 34px; font-size: 14px; }
+.swatch-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.swatch-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 11px 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.6);
+  font-size: 13.5px;
+  text-transform: capitalize;
+  cursor: pointer;
+}
+.swatch-chip.is-on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); font-weight: 600; }
+.swatch-chip:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.pf-toggle { display: flex; align-items: center; gap: 10px; margin-top: 18px; font-size: 15px; cursor: pointer; }
+.pf-toggle input { width: 18px; height: 18px; accent-color: var(--ink); }
+
+.pf-savebar {
+  position: sticky;
+  bottom: 14px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 10px 10px 18px;
+  border-radius: 10px;
+  background: #fffaf2;
+  box-shadow: 0 0 0 1px var(--line), 0 14px 30px -16px rgba(60, 35, 10, 0.45);
+  font-size: 14.5px;
+  color: var(--muted);
+}
+.pf-savebar.is-dirty { color: var(--ink); box-shadow: 0 0 0 1.5px var(--brass), 0 14px 30px -16px rgba(60, 35, 10, 0.45); }
+.pf-danger { display: flex; gap: 10px; padding-top: 6px; }
+.btn.danger { color: var(--danger); border-color: rgba(155, 58, 42, 0.3); }
+
+@media (max-width: 860px) {
+  .pf { grid-template-columns: 1fr; }
+  .pf-side { position: static; grid-template-columns: 120px 1fr; align-items: center; }
+  .pf-side .profile-photo { grid-row: span 2; }
+  .pf-stats { text-align: left; }
+  .pf-grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .pf-savebar { bottom: calc(80px + env(safe-area-inset-bottom)); }
+  .pf-section { padding: 16px; }
+  .pf-grid { grid-template-columns: 1fr; }
+  .pf-grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

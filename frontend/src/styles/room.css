@@ -1,0 +1,131 @@
+.room {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #1a0f08;
+}
+
+/* The scene keeps its 16:9 shape and covers the screen, so tag positions stay true. */
+.room-stage {
+  --ar: calc(1600 / 900);
+  --w: max(100vw, calc(100vh * var(--ar)));
+  position: absolute;
+  left: calc((100vw - var(--w)) * 0.3);
+  top: 50%;
+  width: var(--w);
+  height: max(100vh, calc(100vw / var(--ar)));
+  translate: 0 -50%;
+}
+.wardrobe { display: block; width: 100%; height: 100%; }
+.from-doors .room-stage { animation: settle 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes settle {
+  from { scale: 1.12; filter: brightness(1.6) sepia(0.4); }
+  to { scale: 1; filter: none; }
+}
+
+/* A vignette over the whole room, darker in the corners like lamplight would be. */
+.room-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 70% 75% at 50% 48%, transparent 50%, rgba(10, 5, 2, 0.6) 100%);
+}
+
+/* ---------------------------------------------------------------- hotspots */
+
+.hot { cursor: pointer; outline: none; transition: filter 0.3s; }
+.hot-glow { fill: url(#hotGlow); fill-opacity: 0; mix-blend-mode: screen; transition: fill-opacity 0.3s; }
+.hot.is-on { filter: brightness(1.14) saturate(1.05); }
+.hot.is-on .hot-glow { fill-opacity: 0.32; }
+.hot:focus-visible .hot-glow { fill-opacity: 0.36; }
+.plate-text { font: 700 9.5px var(--sans); letter-spacing: 0.14em; fill: #3a2410; }
+
+.snow circle { animation: snowfall linear infinite; }
+@keyframes snowfall {
+  from { transform: translate(0, -40px); }
+  to { transform: translate(14px, 300px); }
+}
+.motes circle { opacity: 0; animation: drift 14s ease-in-out infinite; }
+@keyframes drift {
+  0% { opacity: 0; transform: translate(0, 0); }
+  30% { opacity: 0.55; }
+  70% { opacity: 0.4; }
+  100% { opacity: 0; transform: translate(26px, -40px); }
+}
+
+.room-sign {
+  position: fixed;
+  z-index: 4;
+  left: 26px;
+  top: 20px;
+  font: 400 clamp(26px, 2.6vw, 40px) / 1 var(--poster);
+  letter-spacing: 0.04em;
+  background: linear-gradient(180deg, #fff6cf, #e8b955 45%, #8d5a14 55%, #f0cc78);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(30, 14, 0, 0.9));
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- tags */
+
+.spot-tag {
+  position: absolute;
+  z-index: 3;
+  width: max-content;
+  max-width: 250px;
+  padding: 10px 14px 11px;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 2px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 12px 26px rgba(20, 10, 0, 0.45);
+  pointer-events: none;
+  animation: tag-in 0.2s ease-out;
+}
+@keyframes tag-in { from { opacity: 0; margin-top: 6px; } }
+.spot-tag strong { display: block; font: 400 17px/1.15 var(--display); margin-bottom: 3px; }
+.spot-tag span { font-size: 14px; line-height: 1.4; color: var(--muted); }
+.tag-right { translate: 14px 0; }
+.tag-left { translate: calc(-100% - 14px) 0; }
+.tag-below { translate: -50% 12px; }
+.tag-photo {
+  display: block;
+  width: 100%;
+  height: 96px;
+  margin-bottom: 8px;
+  object-fit: cover;
+  object-position: 50% 32%;
+  border-radius: 2px;
+}
+
+.room-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  translate: -50% 0;
+  margin: 0;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(27, 21, 17, 0.6);
+  color: #f3e8d4;
+  font-size: 13px;
+  backdrop-filter: blur(6px);
+  animation: hint-out 1s ease 6s forwards;
+}
+@keyframes hint-out { to { opacity: 0; } }
+.for-touch { display: none; }
+
+@media (hover: none) {
+  .for-mouse { display: none; }
+  .for-touch { display: inline; }
+}
+/* Portrait phones: pan across the room instead of losing the closet off-screen. */
+@media (max-aspect-ratio: 1/1) {
+  .room { overflow-x: auto; }
+  .room-stage { position: relative; left: 0; top: 0; translate: none; width: calc(100vh * var(--ar)); height: 100vh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .snow circle, .motes circle { animation: none; }
+}

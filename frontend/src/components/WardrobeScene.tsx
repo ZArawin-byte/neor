@@ -1,0 +1,415 @@
+import type { ReactNode } from "react";
+import { MASCOT } from "../lib/mascot";
+
+/**
+ * The inside of the wardrobe, drawn as one SVG in one-point perspective (viewBox 1600x900,
+ * vanishing point at 800,410). The only thing outside is what you see through the window:
+ * a snowy pine wood and a lamppost.
+ *
+ * Each clickable object is a <Hot> group; Room.tsx supplies the handlers and the tags.
+ */
+
+export type SpotId = "archive" | "profile" | "closet" | "window" | "lion" | "mirror";
+
+// Back wall rectangle. Everything else is built from these four edges.
+const BW = { l: 600, r: 1000, t: 230, b: 590 };
+
+/** A point on the left wall: x across (0 = near edge, 600 = far corner), v down (0 = ceiling, 1 = floor). */
+function Lw(x: number, v: number): [number, number] {
+  const top = (BW.t / BW.l) * x, bottom = 900 - ((900 - BW.b) / BW.l) * x;
+  return [x, top + v * (bottom - top)];
+}
+/** Same for the right wall, mirrored. */
+function Rw(x: number, v: number): [number, number] {
+  const d = 1600 - x;
+  const top = (BW.t / BW.l) * d, bottom = 900 - ((900 - BW.b) / BW.l) * d;
+  return [x, top + v * (bottom - top)];
+}
+const quad = (...pts: [number, number][]) => `M${pts.map((p) => p.join(" ")).join(" L")} Z`;
+/** How big something is at this x on the left wall, relative to the near edge. */
+const scaleAt = (x: number) => 1 - (x / BW.l) * (1 - (BW.b - BW.t) / 900);
+
+interface HotProps {
+  id: SpotId;
+  active: SpotId | null;
+  onEnter: (id: SpotId) => void;
+  onLeave: () => void;
+  onOpen: (id: SpotId) => void;
+  onContext?: (e: React.MouseEvent) => void;
+  label: string;
+  children: ReactNode;
+}
+
+function Hot({ id, active, onEnter, onLeave, onOpen, onContext, label, children }: HotProps) {
+  return (
+    <g
+      className={`hot ${active === id ? "is-on" : ""}`}
+      role="button"
+      tabIndex={0}
+      aria-label={label}
+      onMouseEnter={() => onEnter(id)}
+      onMouseLeave={onLeave}
+      onFocus={() => onEnter(id)}
+      onBlur={onLeave}
+      onClick={() => onOpen(id)}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpen(id))}
+      onContextMenu={onContext}
+    >
+      {children}
+    </g>
+  );
+}
+
+// ---------------------------------------------------------------- pieces of furniture
+
+const COATS = [
+  { x: 520, fill: "#6b5a4a", fur: true },
+  { x: 470, fill: "#2f3b2f", fur: false },
+  { x: 425, fill: "#efe4d0", fur: true },
+  { x: 375, fill: "#5c1e1d", fur: false },
+  { x: 322, fill: "#8a6a4a", fur: true },
+  { x: 268, fill: "#3b3a3f", fur: false },
+  { x: 210, fill: "#c9b08a", fur: true },
+  { x: 148, fill: "#4a2f22", fur: true },
+  { x: 88, fill: "#2a3446", fur: false },
+];
+const RAIL_V = 0.34;
+const COAT = "M30 16 L56 8 L82 16 L102 36 L108 120 L112 338 Q84 348 56 344 Q28 348 0 338 L4 120 L10 36 Z";
+
+function Coat({ x, fill, fur }: { x: number; fill: string; fur: boolean }) {
+  const [, ry] = Lw(x, RAIL_V);
+  const s = scaleAt(x);
+  const w = 112 * s;
+  return (
+    <g transform={`translate(${x - w / 2} ${ry}) scale(${s})`}>
+      <path d="M56 6 Q56 -6 62 -10" fill="none" stroke="#c9a463" strokeWidth="3" />
+      <path d="M18 24 L56 6 L94 24" fill="none" stroke="#5a4020" strokeWidth="5" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={COAT} fill={fill} filter={fur ? "url(#fur)" : undefined} />
+      <path d={COAT} fill="url(#coatShade)" />
+      {/* sleeves, lapels and the front edge, so each one reads as a coat */}
+      <path d="M16 46 Q12 160 20 268 M96 46 Q100 160 92 268" fill="none" stroke="#000" strokeOpacity="0.28" strokeWidth="3" />
+      <path d="M40 16 L56 96 L72 16" fill="none" stroke="#000" strokeOpacity="0.3" strokeWidth="3" strokeLinejoin="round" />
+      <path d="M56 96 L57 342" stroke="#000" strokeOpacity="0.25" strokeWidth="2" />
+      {!fur && [130, 180, 230].map((y) => <circle key={y} cx="62" cy={y} r="3" fill="#000" opacity="0.35" />)}
+    </g>
+  );
+}
+
+function Pine({ x, y, h, tone = "#1d3529" }: { x: number; y: number; h: number; tone?: string }) {
+  const w = h * 0.42;
+  return (
+    <g>
+      {[0, 0.28, 0.52].map((k, i) => {
+        const top = y - h + k * h, base = top + h * 0.48, ww = w * (0.55 + k);
+        return (
+          <g key={i}>
+            <path d={`M${x} ${top} L${x + ww / 2} ${base} L${x - ww / 2} ${base} Z`} fill={tone} />
+            <path d={`M${x} ${top} L${x + ww * 0.18} ${top + h * 0.12} L${x - ww * 0.12} ${top + h * 0.1} Z`} fill="#eef3f7" opacity="0.9" />
+            <path d={`M${x - ww / 2} ${base} Q${x} ${base - h * 0.06} ${x + ww / 2} ${base}`} fill="none" stroke="#eef3f7" strokeWidth={h * 0.025} strokeLinecap="round" />
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+function Window() {
+  const arch = "M708 556 V372 A92 92 0 0 1 892 372 V556 Z";
+  return (
+    <g>
+      <defs>
+        <clipPath id="glass"><path d={arch} /></clipPath>
+        <linearGradient id="dusk" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#1f2c48" />
+          <stop offset="0.55" stopColor="#6b7fa3" />
+          <stop offset="0.85" stopColor="#d9c3b0" />
+        </linearGradient>
+        <radialGradient id="lampGlow">
+          <stop offset="0" stopColor="#fff2c4" stopOpacity="0.95" />
+          <stop offset="0.25" stopColor="#ffd27a" stopOpacity="0.6" />
+          <stop offset="1" stopColor="#ffb347" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <g clipPath="url(#glass)">
+        <rect x="700" y="270" width="200" height="300" fill="url(#dusk)" />
+        <path d="M700 500 Q760 470 820 492 T900 480 V570 H700 Z" fill="#cfd8e3" />
+        <Pine x={724} y={520} h={130} tone="#243d33" />
+        <Pine x={880} y={515} h={150} tone="#243d33" />
+        <Pine x={772} y={540} h={96} />
+        {/* the lamppost, lit, in the snow */}
+        <circle cx="828" cy="452" r="34" fill="url(#lampGlow)" />
+        <rect x="826" y="458" width="4" height="86" fill="#1b1d22" />
+        <path d="M819 446 H837 L834 462 H822 Z" fill="#1b1d22" />
+        <rect x="822" y="448" width="12" height="11" fill="#ffe7a6" />
+        <path d="M700 545 Q800 525 900 545 V570 H700 Z" fill="#eef2f6" />
+        <g className="snow">
+          {Array.from({ length: 26 }, (_, i) => (
+            <circle key={i} cx={705 + ((i * 37) % 190)} cy={270 + ((i * 53) % 280)} r={i % 3 ? 1.4 : 2.2} fill="#fff" opacity="0.85"
+              style={{ animationDelay: `${-(i % 9) * 0.9}s`, animationDuration: `${7 + (i % 5)}s` }} />
+          ))}
+        </g>
+      </g>
+      {/* leaded lights: a fine diamond lattice over the glass */}
+      <g clipPath="url(#glass)" stroke="#1b130c" strokeOpacity="0.55" strokeWidth="1.2">
+        {Array.from({ length: 12 }, (_, i) => <path key={`a${i}`} d={`M${640 + i * 30} 570 L${760 + i * 30} 270`} />)}
+        {Array.from({ length: 12 }, (_, i) => <path key={`b${i}`} d={`M${640 + i * 30} 270 L${760 + i * 30} 570`} />)}
+      </g>
+      <path d={arch} fill="none" stroke="#3b2414" strokeWidth="18" />
+      <path d={arch} fill="none" stroke="#8a5e38" strokeWidth="5" />
+      <path d="M800 282 V556 M708 450 H892" stroke="#3b2414" strokeWidth="8" />
+      <rect x="696" y="556" width="208" height="16" fill="#5a3a22" />
+      <rect x="696" y="556" width="208" height="4" fill="#9a6e44" />
+    </g>
+  );
+}
+
+function Mirror() {
+  const xl = 1062, xr = 1192;
+  const [, tl] = Rw(xl, 0.14), [, bl] = Rw(xl, 0.86);
+  const [, tr] = Rw(xr, 0.12), [, br] = Rw(xr, 0.88);
+  const frame = `M${xl} ${bl} L${xl} ${tl + 40} Q${(xl + xr) / 2} ${tl - 46} ${xr} ${tr + 30} L${xr} ${br} Z`;
+  const inset = 12;
+  const glass = `M${xl + inset} ${bl - inset} L${xl + inset} ${tl + 44} Q${(xl + xr) / 2} ${tl - 28} ${xr - inset} ${tr + 36} L${xr - inset} ${br - inset} Z`;
+  return (
+    <g>
+      <defs>
+        <linearGradient id="glassTone" x1="0" y1="0" x2="1" y2="0.3">
+          <stop offset="0" stopColor="#8d8a84" />
+          <stop offset="0.45" stopColor="#d9d6cf" />
+          <stop offset="1" stopColor="#6e6a63" />
+        </linearGradient>
+        <clipPath id="mirrorGlass"><path d={glass} /></clipPath>
+        <linearGradient id="gilt" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#f0d28a" />
+          <stop offset="0.35" stopColor="#a8792e" />
+          <stop offset="0.6" stopColor="#e3bd6b" />
+          <stop offset="1" stopColor="#7a5418" />
+        </linearGradient>
+      </defs>
+      <path d={frame} fill="#6b4a1c" />
+      <path d={frame} fill="url(#gilt)" />
+      <path d={frame} fill="none" stroke="#3b2414" strokeWidth="2" />
+      <path d={glass} fill="url(#glassTone)" />
+      {/* the window, reflected */}
+      <g clipPath="url(#mirrorGlass)" opacity="0.5">
+        <path d={`M${xl + 30} ${bl - 70} V${tl + 120} A30 30 0 0 1 ${xl + 90} ${tl + 110} V${bl - 80} Z`} fill="#8fa3c0" />
+        <path d={`M${xl + 10} ${tl} L${xl + 70} ${tl} L${xr - 30} ${br} L${xr - 90} ${br} Z`} fill="#fff" opacity="0.18" />
+      </g>
+      <path d={glass} fill="none" stroke="#c9a463" strokeWidth="2" opacity="0.8" />
+    </g>
+  );
+}
+
+function SideTable() {
+  return (
+    <g>
+      <ellipse cx="1112" cy="760" rx="58" ry="12" fill="#000" opacity="0.35" filter="url(#soft)" />
+      <path d="M1100 652 L1096 756 H1128 L1124 652 Z" fill="#4a2c18" />
+      <path d="M1100 652 L1098 756 H1106 L1106 652 Z" fill="#7a5030" />
+      <ellipse cx="1112" cy="650" rx="66" ry="16" fill="#5a3620" />
+      <ellipse cx="1112" cy="646" rx="66" ry="16" fill="#8a5a34" />
+      <ellipse cx="1112" cy="646" rx="66" ry="16" fill="url(#oakGrad)" opacity="0.4" filter="url(#grain)" />
+      {/* teapot and cup */}
+      <ellipse cx="1092" cy="622" rx="24" ry="20" fill="#f4efe6" />
+      <path d="M1070 616 Q1056 606 1058 594" fill="none" stroke="#f4efe6" strokeWidth="5" strokeLinecap="round" />
+      <path d="M1114 612 Q1128 612 1126 628" fill="none" stroke="#e6ded0" strokeWidth="4" />
+      <ellipse cx="1092" cy="602" rx="10" ry="4" fill="#e6ded0" />
+      <circle cx="1092" cy="597" r="3" fill="#e6ded0" />
+      <path d="M1074 624 Q1092 636 1110 624" fill="none" stroke="#c9a463" strokeWidth="1.5" />
+      <ellipse cx="1142" cy="640" rx="16" ry="4" fill="#e6ded0" />
+      <path d="M1132 628 h20 l-3 12 h-14 Z" fill="#f4efe6" />
+      <ellipse cx="1142" cy="628" rx="10" ry="3" fill="#7a4a22" />
+    </g>
+  );
+}
+
+// ---------------------------------------------------------------- the scene
+
+export function WardrobeScene({ onLionContext, ...props }: Omit<HotProps, "id" | "label" | "children" | "onContext"> & { onLionContext: (e: React.MouseEvent) => void }) {
+  const shelf = (v: number) => quad(Lw(40, v), Lw(540, v), Lw(540, v + 0.014), Lw(40, v + 0.014));
+  const box = (x0: number, x1: number, v: number, hgt: number) => quad(Lw(x0, v - hgt), Lw(x1, v - hgt), Lw(x1, v), Lw(x0, v));
+  const railA = Lw(50, RAIL_V), railB = Lw(560, RAIL_V);
+  const slopeAt = (v: number) => (BW.t / BW.l) * (1 - v) - ((900 - BW.b) / BW.l) * v;
+
+  return (
+    <svg className="wardrobe" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Inside the wardrobe">
+      <defs>
+        <filter id="grain" x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.003 0.06" numOctaves="4" seed="4" />
+          <feColorMatrix values="0 0 0 0 0.12  0 0 0 0 0.06  0 0 0 0 0.02  0 0 0 2.4 -1.05" />
+          <feComposite in2="SourceGraphic" operator="in" />
+        </filter>
+        <filter id="grainH" x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.06 0.004" numOctaves="4" seed="9" />
+          <feColorMatrix values="0 0 0 0 0.12  0 0 0 0 0.06  0 0 0 0 0.02  0 0 0 2.4 -1.05" />
+          <feComposite in2="SourceGraphic" operator="in" />
+        </filter>
+        <filter id="fur" x="-10%" y="-10%" width="120%" height="120%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="2" result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="7" />
+        </filter>
+        <filter id="soft"><feGaussianBlur stdDeviation="6" /></filter>
+        <radialGradient id="hotGlow">
+          <stop offset="0" stopColor="#ffd796" stopOpacity="1" />
+          <stop offset="0.6" stopColor="#ffd796" stopOpacity="0.45" />
+          <stop offset="1" stopColor="#ffd796" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="oakGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#a8723f" />
+          <stop offset="1" stopColor="#6b4223" />
+        </linearGradient>
+        <linearGradient id="leftWall" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#5a3820" />
+          <stop offset="0.6" stopColor="#7a4e2b" />
+          <stop offset="1" stopColor="#4a2e19" />
+        </linearGradient>
+        <linearGradient id="rightWall" x1="1" y1="0" x2="0" y2="0">
+          <stop offset="0" stopColor="#5a3820" />
+          <stop offset="0.6" stopColor="#80532e" />
+          <stop offset="1" stopColor="#4a2e19" />
+        </linearGradient>
+        <linearGradient id="floorWood" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stopColor="#3a2414" />
+          <stop offset="1" stopColor="#5e3c22" />
+        </linearGradient>
+        <linearGradient id="coatShade" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#000" stopOpacity="0.35" />
+          <stop offset="0.5" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity="0.45" />
+        </linearGradient>
+        <radialGradient id="lantern" cx="0.5" cy="0.3" r="0.55">
+          <stop offset="0" stopColor="#ffcf86" stopOpacity="0.55" />
+          <stop offset="0.5" stopColor="#ff9e4a" stopOpacity="0.12" />
+          <stop offset="1" stopColor="#ff9e4a" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="moon" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#b9c9e6" stopOpacity="0.32" />
+          <stop offset="1" stopColor="#b9c9e6" stopOpacity="0" />
+        </linearGradient>
+        <radialGradient id="velvet" cx="0.4" cy="0.3" r="0.8">
+          <stop offset="0" stopColor="#9a2f2a" />
+          <stop offset="1" stopColor="#4a1210" />
+        </radialGradient>
+        <linearGradient id="lionFade" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0.86" stopColor="#fff" />
+          <stop offset="1" stopColor="#000" />
+        </linearGradient>
+        <mask id="lionMask"><rect x="738" y="392" width="300" height="309" fill="url(#lionFade)" /></mask>
+        {/* warm the photo so it sits in lamplight */}
+        <filter id="lamplit">
+          <feColorMatrix values="1.06 0.04 0 0 0.02  0.02 0.98 0 0 0  0 0 0.86 0 0  0 0 0 1 0" />
+        </filter>
+      </defs>
+
+      {/* shell */}
+      <path d={quad([0, 0], [1600, 0], [BW.r, BW.t], [BW.l, BW.t])} fill="#2e1c10" />
+      <path d={quad([0, 0], [1600, 0], [BW.r, BW.t], [BW.l, BW.t])} fill="#000" filter="url(#grainH)" opacity="0.6" />
+      {[0.18, 0.42, 0.64, 0.82].map((t) => (
+        <path key={t} d={quad([BW.l * t, BW.t * t], [1600 - BW.l * t, BW.t * t], [1600 - BW.l * (t + 0.035), BW.t * (t + 0.035)], [BW.l * (t + 0.035), BW.t * (t + 0.035)])} fill="#1e1209" />
+      ))}
+
+      <path d={quad([0, 0], [BW.l, BW.t], [BW.l, BW.b], [0, 900])} fill="url(#leftWall)" />
+      <path d={quad([0, 0], [BW.l, BW.t], [BW.l, BW.b], [0, 900])} fill="#000" filter="url(#grain)" />
+      <path d={quad([1600, 0], [BW.r, BW.t], [BW.r, BW.b], [1600, 900])} fill="url(#rightWall)" />
+      <path d={quad([1600, 0], [BW.r, BW.t], [BW.r, BW.b], [1600, 900])} fill="#000" filter="url(#grain)" />
+      {/* panel seams, converging on the far wall */}
+      {[70, 150, 230, 305, 375, 440, 498, 550].map((x) => (
+        <g key={x} stroke="#24150a" strokeOpacity="0.6" strokeWidth={2.4 * scaleAt(x)}>
+          <path d={`M${Lw(x, 0).join(" ")} L${Lw(x, 1).join(" ")}`} />
+          <path d={`M${Rw(1600 - x, 0).join(" ")} L${Rw(1600 - x, 1).join(" ")}`} />
+        </g>
+      ))}
+
+      <rect x={BW.l} y={BW.t} width={BW.r - BW.l} height={BW.b - BW.t} fill="#5e3b20" />
+      <rect x={BW.l} y={BW.t} width={BW.r - BW.l} height={BW.b - BW.t} fill="#000" filter="url(#grain)" />
+
+      <path d={quad([0, 900], [1600, 900], [BW.r, BW.b], [BW.l, BW.b])} fill="url(#floorWood)" />
+      <path d={quad([0, 900], [1600, 900], [BW.r, BW.b], [BW.l, BW.b])} fill="#000" filter="url(#grainH)" opacity="0.7" />
+      {Array.from({ length: 15 }, (_, i) => {
+        const xb = -200 + i * 143;
+        return <path key={i} d={`M${xb} 900 L${BW.l + ((xb + 200) / 2000) * (BW.r - BW.l)} ${BW.b}`} stroke="#1f1208" strokeOpacity="0.55" strokeWidth="2" />;
+      })}
+
+      {/* cold light from the window, falling across the floor */}
+      <path d="M708 590 L892 590 L1060 900 L470 900 Z" fill="url(#moon)" />
+
+      {/* hanging lantern */}
+      <path d="M800 70 V128" stroke="#2a1c0e" strokeWidth="2" />
+      <ellipse cx="800" cy="210" rx="520" ry="420" fill="url(#lantern)" />
+      <path d="M786 128 H814 L820 140 H780 Z" fill="#6b4c16" />
+      <rect x="784" y="140" width="32" height="40" fill="#ffd98a" stroke="#6b4c16" strokeWidth="3" />
+      <path d="M800 140 V180 M784 160 H816" stroke="#6b4c16" strokeWidth="2" />
+      <path d="M780 180 H820 L812 190 H788 Z" fill="#6b4c16" />
+
+      <Hot id="window" label="Window: outfits for the places around you" {...props}>
+        <Window />
+        <path className="hot-glow" d="M708 556 V372 A92 92 0 0 1 892 372 V556 Z" />
+      </Hot>
+
+      {/* shelves: archive on top, profile below */}
+      <Hot id="archive" label="Archive: every look you have saved" {...props}>
+        <path d={shelf(0.13)} fill="#3b2414" />
+        <path d={box(70, 190, 0.13, 0.07)} fill="#6e2a20" />
+        <path d={box(200, 300, 0.13, 0.055)} fill="#2f3b2f" />
+        <path d={box(310, 400, 0.13, 0.065)} fill="#7a5a3a" />
+        <g transform={`translate(${Lw(96, 0.1).join(" ")}) matrix(1 ${slopeAt(0.1)} 0 1 0 0)`}>
+          <rect width="72" height="16" rx="2" fill="#c9a463" />
+          <text x="36" y="12" textAnchor="middle" className="plate-text">ARCHIVE</text>
+        </g>
+        <path className="hot-glow" d={quad(Lw(60, 0.05), Lw(420, 0.05), Lw(420, 0.15), Lw(60, 0.15))} />
+      </Hot>
+
+      <Hot id="profile" label="Profile: what Neor should know about you" {...props}>
+        <path d={shelf(0.25)} fill="#3b2414" />
+        <path d={box(80, 200, 0.25, 0.06)} fill="#a58a62" />
+        <path d={box(215, 330, 0.25, 0.07)} fill="#4a2f22" />
+        <path d={box(345, 420, 0.25, 0.05)} fill="#6e2a20" />
+        <g transform={`translate(${Lw(236, 0.225).join(" ")}) matrix(1 ${slopeAt(0.225)} 0 1 0 0)`}>
+          <rect width="64" height="15" rx="2" fill="#c9a463" />
+          <text x="32" y="11.5" textAnchor="middle" className="plate-text">PROFILE</text>
+        </g>
+        <path className="hot-glow" d={quad(Lw(60, 0.17), Lw(440, 0.17), Lw(440, 0.27), Lw(60, 0.27))} />
+      </Hot>
+
+      <Hot id="closet" label="Closet: everything you own, ready to mix" {...props}>
+        <path d={`M${railA.join(" ")} L${railB.join(" ")}`} stroke="#c9a463" strokeWidth="6" strokeLinecap="round" />
+        <path d={`M${railA.join(" ")} L${railB.join(" ")}`} stroke="#fff3c4" strokeWidth="1.5" strokeOpacity="0.6" />
+        {COATS.map((c) => <Coat key={c.x} {...c} />)}
+        <path className="hot-glow" d={quad(Lw(40, 0.3), Lw(560, 0.3), Lw(560, 0.78), Lw(40, 0.8))} />
+      </Hot>
+
+      <Hot id="mirror" label="Mirror: try on whatever is on your table" {...props}>
+        <Mirror />
+        <path className="hot-glow" d={quad(Rw(1060, 0.1), Rw(1194, 0.08), Rw(1194, 0.9), Rw(1060, 0.88))} />
+      </Hot>
+
+      {/* rug, ottoman and the lion */}
+      <ellipse cx="880" cy="772" rx="340" ry="74" fill="#5c1a17" />
+      <ellipse cx="880" cy="772" rx="318" ry="64" fill="none" stroke="#c9a463" strokeWidth="3" />
+      <ellipse cx="880" cy="772" rx="290" ry="54" fill="none" stroke="#2a0b09" strokeWidth="10" strokeDasharray="6 10" />
+      <ellipse cx="880" cy="772" rx="200" ry="34" fill="#7a2420" opacity="0.6" />
+
+      <Hot id="lion" label="The lion: a closet critique. Right-click for more" {...props} onContext={onLionContext}>
+        <ellipse cx="886" cy="768" rx="215" ry="34" fill="#000" opacity="0.45" filter="url(#soft)" />
+        <path d="M680 700 V748 Q886 800 1092 748 V700 Z" fill="url(#velvet)" />
+        <ellipse cx="886" cy="700" rx="206" ry="44" fill="#8a2a25" />
+        {[[790, 702], [886, 694], [982, 702], [838, 716], [934, 716]].map(([x, y]) => (
+          <circle key={x} cx={x} cy={y} r="3.5" fill="#3a0d0b" />
+        ))}
+        <ellipse cx="890" cy="704" rx="170" ry="20" fill="#000" opacity="0.4" filter="url(#soft)" />
+        <image href={MASCOT.cutout} x="738" y="392" width="300" height="309" mask="url(#lionMask)" filter="url(#lamplit)" />
+        <ellipse className="hot-glow" cx="886" cy="600" rx="230" ry="210" />
+      </Hot>
+
+      <SideTable />
+
+      {/* atmosphere: dust in the lamplight */}
+      <g className="motes">
+        {Array.from({ length: 18 }, (_, i) => (
+          <circle key={i} cx={560 + ((i * 71) % 520)} cy={160 + ((i * 97) % 420)} r={i % 4 ? 1.3 : 2} fill="#ffe2a6"
+            style={{ animationDelay: `${-i * 0.7}s` }} />
+        ))}
+      </g>
+    </svg>
+  );
+}

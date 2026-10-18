@@ -58,7 +58,8 @@ def _catalog_brief(products: list[dict] | None = None) -> str:
 
 
 def _profile_brief(profile: dict) -> str:
-    keys = ("name", "styles", "modesty", "modesty_notes", "measurements", "budget", "scents", "colors_love", "colors_avoid", "climate")
+    keys = ("name", "age", "gender", "tradition", "styles", "modesty", "dress_rules", "modesty_notes", "measurements",
+            "budget", "scents", "colors_love", "colors_avoid", "climate")
     return json.dumps({k: profile.get(k) for k in keys if profile.get(k)})
 
 

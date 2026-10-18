@@ -1,0 +1,54 @@
+.looks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 22px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.look-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px 12px 14px;
+  background: #fffaf2;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(60, 35, 10, 0.15), 0 14px 30px -18px rgba(60, 35, 10, 0.5);
+}
+.look-card:nth-child(3n + 1) { rotate: -0.6deg; }
+.look-card:nth-child(3n + 2) { rotate: 0.5deg; }
+
+.look-visual {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--linen) var(--grain);
+}
+.look-photo { width: 100%; height: 100%; object-fit: cover; }
+.look-stickers {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+}
+.look-photo + .look-stickers {
+  inset: auto 8px 8px auto;
+  flex-direction: column;
+  padding: 6px;
+  border-radius: 8px;
+  background: rgba(255, 250, 242, 0.85);
+}
+.look-meta { display: flex; justify-content: space-between; align-items: start; gap: 8px; }
+.look-meta h3 { font: 400 19px/1.15 var(--display); margin: 0; }
+.look-meta .facts { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+.fav.is-on { color: var(--brass); }
+.verdict-line { margin: 0; font-size: 13.5px; color: var(--ink-2); }
+.del { justify-self: start; font-size: 12.5px; }
+/* Same shape as the mirror glass, so try-on positions line up. */
+.look-visual.has-tryon { aspect-ratio: 9 / 20; }
+.look-visual.has-tryon .look-stickers { display: none; }
+.look-visual .worn { position: absolute; filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.35)); }
+.look-visual .worn img, .look-visual .worn svg { display: block; width: 100%; height: auto; }

@@ -16,7 +16,7 @@ grep -q "neor-closet.web.app" .env || echo "Warning: FRONTEND_ORIGINS in .env sh
 git fetch -q origin
 if ! $SSH 'test -f /opt/neor/.setup-done'; then
   echo "First run: setting the server up (a few minutes)..."
-  $SSH 'bash -s' < deploy/vultr/setup.sh
+  tr -d '\r' < deploy/vultr/setup.sh | $SSH 'bash -s' # Windows checkouts have CRLF endings
 fi
 # the code: exactly what's on origin/main, minus the prototype folder
 git archive --format=tar.gz origin/main -- . ':!souq-source' ':!frontend' | $SSH 'tar -xzf - -C /opt/neor'

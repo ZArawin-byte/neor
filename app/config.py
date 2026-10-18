@@ -40,6 +40,9 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "").replace(" ", "").strip()
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com").strip()
 SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
 USE_EMAIL = bool(SMTP_USER and SMTP_PASSWORD)
+# When the API is public, only these addresses may get lazy-mode emails (comma-separated).
+# Empty = anyone, which is fine on localhost but lets strangers send mail from your account.
+LAZY_ALLOWED_EMAILS = {e.strip().lower() for e in os.getenv("LAZY_ALLOWED_EMAILS", "").split(",") if e.strip()}
 
 DATA_DIR = ROOT / "data"
 UPLOAD_DIR = DATA_DIR / "uploads"

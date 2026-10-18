@@ -423,6 +423,8 @@ def router(current_user):
                 email = req.email.strip().lower() or saved.get("email", "")
                 if not EMAIL_RE.match(email):
                     raise ValueError("Enter the email address to send your outfits to.")
+                if config.LAZY_ALLOWED_EMAILS and email not in config.LAZY_ALLOWED_EMAILS:
+                    raise ValueError("This demo server only sends to the team's own addresses.")
             else:
                 phone = normalize_phone(req.phone or saved.get("phone", ""))
             ics = clean_ics_url(req.ics_url) if req.ics_url else saved.get("ics_url", "")

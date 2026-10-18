@@ -14,11 +14,12 @@ export interface Piece {
   brand?: string;
   seasons?: string[];
   occasions?: string[];
+  rotation?: number;
 }
 
 export const fromItem = (i: Item): Piece => ({
   source: "closet", id: i.id, name: i.name, hex: i.hex || "#b9a68a", rack: guessRack(i),
-  image_url: i.image_url, seasons: i.seasons, occasions: i.occasions,
+  image_url: i.image_url, seasons: i.seasons, occasions: i.occasions, rotation: i.rotation,
 });
 
 export const fromProduct = (p: Product): Piece => ({
@@ -110,4 +111,39 @@ export function completeTheTable(onTable: Piece[], candidates: Piece[], limit = 
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
+}
+
+const NEEDS: Record<Slot, Slot[]> = {
+  top: ["bottom", "shoes"],
+  bottom: ["top", "shoes"],
+  onepiece: ["shoes", "layer"],
+  layer: ["top", "bottom", "shoes"],
+  shoes: ["top", "bottom"],
+  extra: ["top", "bottom", "shoes"],
+};
+
+/**
+ * Outfits built around one piece from what you already own: each missing slot gets the closet
+ * piece that pairs best with everything chosen so far. Later outfits avoid repeating pieces when
+ * there's an alternative, so the looks actually differ.
+ */
+export function outfitsWith(anchor: Piece, closet: Piece[], count = 2): { pieces: Piece[]; harmony: ReturnType<typeof harmonyOf> }[] {
+  const used = new Map<string, number>();
+  const looks: { pieces: Piece[]; harmony: ReturnType<typeof harmonyOf> }[] = [];
+  for (let n = 0; n < count; n++) {
+    const chosen: Piece[] = [anchor];
+    for (const slot of NEEDS[slotOf(anchor.rack)]) {
+      const options = closet.filter((p) => slotOf(p.rack) === slot && !chosen.some((c) => c.id === p.id));
+      if (!options.length) continue;
+      const score = (p: Piece) =>
+        chosen.reduce((s, c) => s + pairScore(p.hex, c.hex), 0) / chosen.length - 0.35 * (used.get(p.id) ?? 0);
+      chosen.push(options.reduce((a, b) => (score(b) > score(a) ? b : a)));
+    }
+    if (chosen.length === 1) break; // nothing in the closet to pair it with
+    chosen.slice(1).forEach((p) => used.set(p.id, (used.get(p.id) ?? 0) + 1));
+    const key = chosen.map((p) => p.id).sort().join();
+    if (looks.some((l) => l.pieces.map((p) => p.id).sort().join() === key)) break; // no new combination left
+    looks.push({ pieces: chosen, harmony: harmonyOf(chosen.map((p) => p.hex)) });
+  }
+  return looks;
 }

@@ -390,3 +390,16 @@ a.btn { text-decoration: none; }
 
 /* Leaflet stacks its panes at z-index 400-1000; keep them inside the map so sheets and menus cover it. */
 .leaflet-container { z-index: 0; isolation: isolate; }
+
+.batch-count { margin: 2px 0 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--oak-deep); }
+
+/* turn a sideways photo upright: on the add-a-piece preview and on hung pieces */
+.confirm-preview { position: relative; }
+.turn-btns { display: flex; gap: 4px; }
+.confirm-preview .turn-btns { position: absolute; right: 10px; bottom: 10px; }
+.turn-btns .icon-btn { width: 32px; height: 32px; font-size: 17px; background: #fffaf2; box-shadow: 0 0 0 1px var(--line); }
+.dragpiece { position: relative; }
+.turn-btns.on-piece { position: absolute; top: -6px; right: -4px; opacity: 0; transition: opacity 0.15s; }
+.dragpiece:hover .turn-btns.on-piece, .turn-btns.on-piece:focus-within { opacity: 1; }
+@media (hover: none) { .turn-btns.on-piece { opacity: 1; } }
+.turn-btns .icon-btn.is-danger { color: var(--danger); }

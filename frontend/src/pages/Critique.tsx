@@ -11,7 +11,7 @@ import { useCloset } from "../lib/closet";
 import { isNeutral, lch } from "../lib/color";
 import { guessRack, slotOf } from "../lib/racks";
 import { saved } from "../lib/saved";
-import { fromProduct } from "../lib/stylist";
+import { fromItem, fromProduct, outfitsWith, type Piece } from "../lib/stylist";
 import type { Item, WeakSpots } from "../lib/types";
 import "../styles/critique.css";
 
@@ -41,6 +41,18 @@ export default function Critique() {
 
   const checks = ESSENTIALS.map((e) => ({ ...e, ok: e.has(active) }));
   const missingCount = checks.filter((c) => !c.ok).length;
+
+  const mine = active.map(fromItem);
+
+  /** Put a whole suggested outfit on the bookmark table, laid out top to bottom. */
+  function outfitToTable(pieces: Piece[]) {
+    const now = Date.now();
+    saved.saveDraft([...saved.draft(), ...pieces.map((p, i) => ({
+      key: `${p.id}-${now}-${i}`, source: p.source, refId: p.id, x: 30 + (i % 2) * 34, y: 22 + Math.floor(i / 2) * 40,
+      rot: i % 2 ? 3 : -3, snap: toSnap(p),
+    }))]);
+    say(<>That outfit is on your table. <Link to="/mirror">Try it in the mirror</Link></>);
+  }
 
   function addToTable(id: string) {
     const p = catalog.find((c) => c.id === id);
@@ -110,14 +122,40 @@ export default function Critique() {
                     <div className="gap-buys">
                       {g.catalog_ids.map((id) => catalog.find((c) => c.id === id)).filter(Boolean).map((p) => {
                         const piece = fromProduct(p!);
+                        const looks = outfitsWith(piece, mine, 2);
                         return (
-                          <div key={p!.id} className="buy">
-                            <Sticker id={piece.id} name={piece.name} hex={piece.hex} rack={piece.rack} size={70} />
-                            <div>
-                              <p>{p!.name}</p>
-                              <small>{p!.brand} · ${p!.price} · tier {p!.tier}</small>
-                              <button className="btn ghost sm" onClick={() => addToTable(p!.id)}>Try it on the table</button>
+                          <div key={p!.id} className="buy-block">
+                            <div className="buy">
+                              <Sticker id={piece.id} name={piece.name} hex={piece.hex} rack={piece.rack} size={70} />
+                              <div>
+                                <p>{p!.name}</p>
+                                <small>{p!.brand} · ${p!.price} · tier {p!.tier}</small>
+                                <button className="btn ghost sm" onClick={() => addToTable(p!.id)}>Try it on the table</button>
+                              </div>
                             </div>
+                            {looks.length > 0 ? (
+                              <div className="buy-looks">
+                                <p className="buy-looks-title">Wear it with what you own</p>
+                                {looks.map((look, i) => (
+                                  <div key={i} className="buy-look">
+                                    <div className="buy-look-pieces">
+                                      {look.pieces.map((lp) => (
+                                        <figure key={lp.id} className={lp.source === "market" ? "is-new" : ""}>
+                                          <Sticker id={lp.id} name={lp.name} hex={lp.hex} rack={lp.rack} image={lp.image_url} size={58} turn={lp.rotation} />
+                                          <figcaption>{lp.source === "market" ? "new" : lp.name}</figcaption>
+                                        </figure>
+                                      ))}
+                                    </div>
+                                    <div className="buy-look-meta">
+                                      <span>Outfit {i + 1} · {look.harmony.name.toLowerCase()}</span>
+                                      <button className="link-back" onClick={() => outfitToTable(look.pieces)}>Put it on the table <Icon name="next" size={12} /></button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="facts">Add a few pieces to your closet and the lion will show outfits with this.</p>
+                            )}
                           </div>
                         );
                       })}

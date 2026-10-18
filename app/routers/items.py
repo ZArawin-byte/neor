@@ -6,7 +6,7 @@ import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from .. import importer, store
+from .. import config, importer, store
 from ..deps import current_user
 from ..schemas import ItemIn, ItemPatch
 from ..seed import STARTER_CLOSET
@@ -72,15 +72,26 @@ async def import_from_link(req: ImportReq, uid: str = Depends(current_user)):
             page, body, final_url = await importer.fetch(http, url, importer.MAX_PAGE)
         except httpx.HTTPError:
             raise HTTPException(502, "Couldn't open that link")
-        if page.status_code >= 400:
-            raise HTTPException(502, "That shop wouldn't let us read the page. Save the photo and upload it instead.")
+        page_text = "" if page.headers.get("content-type", "").startswith("image/") else             body.decode(page.charset_encoding or "utf-8", errors="replace")
+        if page.status_code >= 400 or importer.looks_blocked(page_text):
+            # The shop's bot wall: look the product up by the name in its link instead.
+            found = await importer.photo_by_name(http, url, config.SERPAPI_API_KEY, MAX_UPLOAD)
+            if not found:
+                raise HTTPException(502, "That shop wouldn't let us read the page. Save the photo and upload it instead.")
+            img, img_body, extra = found
+            ctype = img.headers.get("content-type", "").split(";")[0].strip()
+            if ctype not in IMAGE_TYPES:
+                raise HTTPException(415, "That photo is in a format we can't use (we need JPG, PNG or WebP)")
+            return {"title": extra["title"], "price": None, "currency": None, "brand": extra["brand"], "material": None,
+                    "color": None, "structured": False, "found_by": extra["found_by"], "source": url,
+                    "image": f"data:{ctype};base64,{base64.b64encode(img_body).decode()}"}
 
         facts = {"title": "", "price": None, "currency": None, "brand": None, "material": None, "color": None,
                  "structured": False}
         if page.headers.get("content-type", "").startswith("image/"):
             img, img_body = page, body
         else:
-            facts = importer.parse_product_page(body.decode(page.charset_encoding or "utf-8", errors="replace"), final_url)
+            facts = importer.parse_product_page(page_text, final_url)
             image_url = facts.pop("image_url")
             if not image_url:
                 raise HTTPException(422, "Couldn't find a product photo on that page. Save the photo and upload it instead.")

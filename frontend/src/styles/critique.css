@@ -89,3 +89,16 @@
   .critique-layout { grid-template-columns: 1fr; }
   .lion-col { position: static; max-width: 340px; margin: 0 auto; }
 }
+
+/* two outfits per recommendation, built from your own closet */
+.gap-buys { display: grid; gap: 18px; }
+.buy-block { display: grid; gap: 10px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.buy-block:first-child { border-top: 0; padding-top: 0; }
+.buy-looks { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.buy-looks-title { grid-column: 1 / -1; margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--oak-deep); }
+.buy-look { display: grid; gap: 8px; padding: 12px; border-radius: 10px; background: var(--linen); }
+.buy-look-pieces { display: flex; flex-wrap: wrap; gap: 10px; }
+.buy-look-pieces figure { margin: 0; display: grid; justify-items: center; gap: 4px; width: 66px; }
+.buy-look-pieces figcaption { font-size: 11px; line-height: 1.2; text-align: center; color: var(--ink-2); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.buy-look-pieces figure.is-new figcaption { font-weight: 700; color: var(--oak-deep); text-transform: uppercase; letter-spacing: 0.08em; }
+.buy-look-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }

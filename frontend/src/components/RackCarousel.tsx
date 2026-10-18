@@ -43,7 +43,7 @@ export function RackCarousel({ racks, selected, onToggle }: {
                     <div className="rack-slot" key={it.id}
                       style={{ ["--a" as string]: `${(i - (shown.length - 1) / 2) * (360 / Math.max(shown.length, 7))}deg` }}>
                       <span className="hanger" />
-                      <Sticker id={it.id} name={it.name} hex={it.hex ?? "#999"} rack={guessRack(it)} image={it.image_url}
+                      <Sticker id={it.id} name={it.name} hex={it.hex ?? "#999"} rack={guessRack(it)} image={it.image_url} turn={it.rotation}
                         size={size === "lg" ? 130 : 96} tilt={false} dim={it.laundry} />
                     </div>
                   ))}

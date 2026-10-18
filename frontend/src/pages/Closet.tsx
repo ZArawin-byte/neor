@@ -22,7 +22,7 @@ import "../styles/closet.css";
 const clampPct = (v: number) => Math.min(92, Math.max(8, v));
 
 export default function Closet() {
-  const { items, catalog, loading, offline, patch, reload } = useCloset();
+  const { items, catalog, loading, offline, patch, remove, reload } = useCloset();
   const racks = useRacks();
   const [params, setParams] = useSearchParams();
   const [uploading, setUploading] = useState(false);
@@ -137,6 +137,8 @@ export default function Closet() {
                     <div className="sticker-grid">
                       {its.map((i) => (
                         <DraggablePiece key={i.id} id={`closet:${i.id}`} piece={fromItem(i)} dim={i.laundry}
+                          onTurn={(by) => patch(i.id, { rotation: (((i.rotation ?? 0) + by) % 360 + 360) % 360 })}
+                          onDelete={() => { if (confirm(`Remove "${i.name}" from your closet? Its photo is deleted too.`)) { remove(i.id); say(<>{i.name} is gone from your closet.</>); } }}
                           caption={i.laundry ? `${i.name} (in laundry)` : i.name} />
                       ))}
                     </div>

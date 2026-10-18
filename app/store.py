@@ -29,6 +29,26 @@ def sb():
     return _sb
 
 
+def _retry_read(fn):
+    """Supabase drops idle pooled connections; the next read then fails with "Server disconnected"
+    and the closet shows up empty. Reads are safe to repeat, so try once more on a fresh client."""
+    import functools
+
+    import httpx
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        global _sb
+        try:
+            return fn(*args, **kwargs)
+        except (httpx.RemoteProtocolError, httpx.ReadError, httpx.ConnectError):
+            if not config.USE_SUPABASE:
+                raise
+            _sb = None
+            return fn(*args, **kwargs)
+    return wrapper
+
+
 def user_id_from_token(token: str) -> str | None:
     try:
         res = sb().auth.get_user(token)
@@ -101,6 +121,7 @@ def image_url(path: str | None) -> str | None:
     return _signed(path) if config.USE_SUPABASE else f"/uploads/{path}"
 
 
+@_retry_read
 def get_profile(uid: str) -> dict:
     if config.USE_SUPABASE:
         rows = sb().table("profiles").select("data").eq("id", uid).execute().data
@@ -136,6 +157,7 @@ def _hydrate(item: dict) -> dict:
     return item
 
 
+@_retry_read
 def list_items(uid: str) -> list[dict]:
     if config.USE_SUPABASE:
         rows = (
@@ -176,6 +198,7 @@ def add_item(uid: str, item: dict, image: bytes | None = None, ext: str = "jpg",
     return _hydrate(dict(new))
 
 
+@_retry_read
 def _sb_rows(table: str, uid: str, row_id: str, cols: str = "*") -> list[dict]:
     """Rows owned by uid with this id. A malformed id is just 'not found', not a 500."""
     try:
@@ -234,6 +257,7 @@ def add_order(uid: str, order: dict) -> dict:
     return order
 
 
+@_retry_read
 def list_orders(uid: str) -> list[dict]:
     if config.USE_SUPABASE:
         rows = sb().table("orders").select("*").eq("user_id", uid).order("created_at", desc=True).execute().data
@@ -246,6 +270,7 @@ def list_orders(uid: str) -> list[dict]:
 # shop rather than by user. Each row: {id, user_id, data, image_path}.
 
 
+@_retry_read
 def souq_reports(shop_id: str) -> list[dict]:
     if config.USE_SUPABASE:
         return (sb().table("souq_reports").select("id,user_id,data,image_path").eq("shop_id", shop_id)
@@ -254,6 +279,7 @@ def souq_reports(shop_id: str) -> list[dict]:
     return sorted(rows, key=lambda r: r["data"].get("created_at", ""), reverse=True)[:500]
 
 
+@_retry_read
 def souq_reports_recent(limit: int = 3000) -> list[dict]:
     """The newest reports across every shop, for "what did people pay for this near me?"."""
     if config.USE_SUPABASE:
@@ -307,6 +333,7 @@ def souq_delete_report(uid: str, report_id: str) -> None:
 # secret, so it never leaves the server (see lazy.public_sub).
 
 
+@_retry_read
 def lazy_get(uid: str) -> dict | None:
     if config.USE_SUPABASE:
         rows = sb().table("lazy_subscriptions").select("data").eq("user_id", uid).execute().data
@@ -335,6 +362,7 @@ def lazy_delete(uid: str) -> None:
         _save(db)
 
 
+@_retry_read
 def lazy_all() -> list[tuple[str, dict]]:
     if config.USE_SUPABASE:
         return [(r["user_id"], r["data"]) for r in sb().table("lazy_subscriptions").select("user_id,data").execute().data]
@@ -396,6 +424,7 @@ def delete_everything(uid: str, keep_account: bool = False) -> None:
 ROW_TABLES = ("bag", "boards", "looks")
 
 
+@_retry_read
 def _rows(table: str, uid: str) -> list[dict]:
     if config.USE_SUPABASE:
         rows = sb().table(table).select("*").eq("user_id", uid).order("created_at", desc=True).execute().data

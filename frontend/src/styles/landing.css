@@ -6,7 +6,7 @@
 
 .hall {
   --door-h: min(56vh, 540px);
-  --door-x: 41.4%; /* door centre, as a % of the floor plane's width - keeps the rug under it */
+  --door-x: 50.42%; /* door centre, as a % of the floor plane's width - keeps the rug under it */
   position: fixed;
   inset: 0;
   overflow: hidden;
@@ -18,8 +18,15 @@
 .hall-scene {
   position: absolute;
   inset: 0;
-  transform-origin: 37% 47%;
-  transition: transform 0.9s cubic-bezier(0.6, 0, 0.8, 0.4), opacity 0.6s ease 0.3s;
+  /* the doorway's centre once the wall has turned to face you (27% of a 140vw-wide wall) */
+  transform-origin: 37.8% 47%;
+  transition: transform 0.9s cubic-bezier(0.6, 0, 0.8, 0.4), opacity 0.6s ease 0.3s, translate 0.7s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+/* Stepping inside: slide the hall so the doors open in the middle of the screen. */
+@media (min-width: 761px) {
+  .phase-orient .hall-scene,
+  .phase-open .hall-scene,
+  .phase-enter .hall-scene { translate: 12.2vw 0; }
 }
 
 /* ---------------------------------------------------------------- wall */
@@ -27,9 +34,9 @@
 .hall-wall {
   position: absolute;
   z-index: 2;
-  inset: 0 -40vw 19vh 0;
-  transform: perspective(1500px) rotateY(17deg) translateX(-3%);
-  transform-origin: 18% 50%;
+  inset: 0 -40vw 19vh -20vw; /* runs past both edges, so sliding the hall to centre the doors never shows its ends */
+  transform: perspective(1500px) rotateY(17deg) translateX(-2.625%);
+  transform-origin: 28.25% 50%;
   transition: transform 0.7s cubic-bezier(0.3, 0.7, 0.2, 1);
 }
 
@@ -91,7 +98,7 @@
 
 .casing {
   position: absolute;
-  left: 27%;
+  left: 36.125%;
   bottom: 0;
   translate: -50% 0;
   padding: 20px 20px 0;
@@ -268,7 +275,7 @@
 .hall-floor {
   position: absolute;
   z-index: 1;
-  left: -60vw;
+  left: -100vw;
   right: -60vw;
   top: 52vh;
   bottom: 0;
@@ -294,7 +301,7 @@
   position: absolute;
   left: var(--door-x);
   bottom: 0;
-  width: 17%;
+  width: 14.4%; /* 17% of the old 220vw floor */
   height: 100%;
   translate: -50% 0;
   background:
@@ -310,7 +317,7 @@
   position: absolute;
   left: var(--door-x);
   bottom: 230px;
-  width: 30%;
+  width: 25.4%;
   height: 420px;
   translate: -50% 0;
   background: radial-gradient(ellipse at 50% 100%, rgba(255, 200, 110, 0.5), rgba(255, 180, 80, 0.12) 50%, transparent 72%);
@@ -395,7 +402,25 @@
 .btn-enter:hover { background: var(--ink-2); }
 .btn-google:disabled, .btn-enter:disabled { opacity: 0.6; cursor: default; }
 
-.hall-side .bargain-notice { margin-right: 150px; }
+/* Feature notices: a row of small pinned cards under the sign-in card. */
+.hall-notices {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 16px;
+  max-width: min(600px, 52vw);
+}
+.hall-notices > * {
+  flex: 0 1 180px;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+  padding: 20px 14px 13px;
+}
+.hall-notices > *:nth-child(odd) { rotate: 2deg; }
+.hall-notices > *:nth-child(even) { rotate: -1.5deg; margin-top: 18px; }
+.hall-notices > * strong { font-size: 18px; }
+.hall-notices > * > span { font-size: 12.5px; }
 
 /* ---------------------------------------------------------------- the sequence */
 
@@ -418,9 +443,9 @@
 /* ---------------------------------------------------------------- phones */
 
 @media (max-width: 760px) {
-  .hall { --door-h: 38vh; --door-x: 50%; }
+  .hall { --door-h: 38vh; --door-x: 57.7%; }
   /* Wall ends higher so the doors stand clear of the card, which then sits on the rug. */
-  .hall-wall { inset: 0 -40vw 35vh 0; transform: perspective(1200px) rotateY(10deg); }
+  .hall-wall { inset: 0 -40vw 35vh 0; transform: perspective(1200px) rotateY(10deg); transform-origin: 18% 50%; }
   .casing { left: 35.7%; padding: 12px 12px 0; }
   .sconce { display: none; }
   .hall-floor { top: 46vh; }
@@ -441,18 +466,27 @@
   .entry-card .btn-google, .entry-card .btn-enter { width: 100%; }
   .card-fine { display: none; }
 
-  .hall-side .bargain-notice {
+  /* phones: the notices become a swipeable strip of small tags at the top */
+  .hall-notices {
     position: fixed;
-    top: 14px;
-    right: 14px;
-    width: 150px;
-    margin: 0;
-    padding: 18px 12px 10px;
+    top: 12px;
+    left: 0;
+    right: 0;
+    max-width: none;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 6px 14px 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
-  .hall-side .bargain-notice span:not(.notice-pin):not(.notice-cta) { display: none; }
-  .hall-side .bargain-notice strong { font-size: 16px; }
+  .hall-notices > * { flex: 0 0 140px; padding: 16px 11px 9px; margin-top: 0 !important; }
+  .hall-notices > * strong { font-size: 15px; }
+  .hall-notices > * > span:not([class*="cta"]):not([class*="pin"]):not([class*="hole"]):not([class*="kicker"]) { display: none; }
 }
 
+@media (max-height: 760px) and (min-width: 761px) {
+  .hall-notices > * > span:not([class*="cta"]):not([class*="pin"]):not([class*="hole"]):not([class*="kicker"]) { display: none; }
+}
 @media (max-height: 560px) and (min-width: 761px) {
   .entry-card { padding: 22px 22px 18px; }
   .card-copy { display: none; }

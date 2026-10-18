@@ -163,9 +163,9 @@ export default function Landing() {
       <aside className="hall-side">
         <div className="entry-card">
           <span className="card-pin" aria-hidden="true" />
-          <p className="card-kicker">Neor · a walk-in wardrobe</p>
+          <p className="card-kicker">Neor · a Narnia-style wardrobe</p>
           <h1>Come in. The lamps are on.</h1>
-          <p className="card-copy">Your clothes, a mirror that tells the truth, and a lion with opinions. All behind these doors.</p>
+          <p className="card-copy">Step through the wardrobe, like the children in Narnia. Inside: your clothes, a mirror that tells the truth, and a lion with opinions.</p>
           {signedIn ? (
             <button className="btn-enter" onClick={walkIn} disabled={phase !== "idle"}>Step inside</button>
           ) : (
@@ -176,7 +176,10 @@ export default function Landing() {
           )}
           <p className="card-fine">Private by default. Your photos are only ever shown to you.</p>
         </div>
-        {FEATURES.map((f) => f.HallwayNotice && <f.HallwayNotice key={f.id} />)}
+        {/* feature notices sit side by side under the card, so adding one never pushes the card off screen */}
+        <div className="hall-notices">
+          {FEATURES.map((f) => f.HallwayNotice && <f.HallwayNotice key={f.id} />)}
+        </div>
       </aside>
     </main>
   );

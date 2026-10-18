@@ -11,6 +11,7 @@ import { Sticker, tiltFor } from "../components/Sticker";
 import { BookmarkTable, DraggablePiece, LaundryBasket, Recommendations, toSnap, type DragData } from "../components/Studio";
 import { UploadSheet } from "../components/UploadSheet";
 import { api } from "../lib/api";
+import { dropPoint } from "../lib/dropPoint";
 import { useCloset, useRacks } from "../lib/closet";
 import { guessRack, RACK_BY_ID, type RackId } from "../lib/racks";
 import { saved } from "../lib/saved";
@@ -54,7 +55,7 @@ export default function Closet() {
   function onDragEnd(e: DragEndEvent) {
     setDragging(null);
     const d = e.active.data.current as DragData | undefined;
-    const box = e.active.rect.current.translated;
+    const pt = dropPoint(e);
     if (!d) return;
 
     if (e.over?.id === "basket" && d.kind === "piece" && d.piece.source === "closet") {
@@ -62,10 +63,9 @@ export default function Closet() {
       say(<>{d.piece.name} is in the laundry basket. Neor won't suggest it until you put it back.</>);
       return;
     }
-    if (e.over?.id === "table" && box) {
-      const t = e.over.rect;
-      const x = clampPct(((box.left + box.width / 2 - t.left) / t.width) * 100);
-      const y = clampPct(((box.top + box.height / 2 - t.top) / t.height) * 100);
+    if (e.over?.id === "table" && pt) {
+      const x = clampPct(pt.x);
+      const y = clampPct(pt.y);
       if (d.kind === "piece") {
         const key = `${d.piece.id}-${Date.now()}`;
         setTable((ps) => [...ps, { key, source: d.piece.source, refId: d.piece.id, x, y, rot: tiltFor(key, 6), snap: toSnap(d.piece) }]);

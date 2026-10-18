@@ -24,14 +24,17 @@ export default function Room() {
   const nav = useNavigate();
   const { state } = useLocation();
   const [active, setActive] = useState<SpotId | null>(null);
+  const [explored, setExplored] = useState(false); // the hint stays until they've found something
   const lion = useLionMenu();
   const spot = active && SPOTS[active];
   const roomRef = useRef<HTMLElement>(null);
+  const openedAt = useRef(Date.now());
 
   // On narrow screens the room pans sideways; open it centred on the lion rather than the coats.
   useEffect(() => {
     const el = roomRef.current;
-    if (el && el.scrollWidth > el.clientWidth) el.scrollLeft = el.scrollWidth * (886 / 1600) - el.clientWidth / 2;
+    // only when the room actually pans (portrait phones); on desktop it is cropped, not scrolled
+    if (el && getComputedStyle(el).overflowX === "auto" && el.scrollWidth > el.clientWidth) el.scrollLeft = el.scrollWidth * (886 / 1600) - el.clientWidth / 2;
   }, []);
 
   return (
@@ -39,7 +42,11 @@ export default function Room() {
       <div className="room-stage">
         <WardrobeScene
           active={active}
-          onEnter={setActive}
+          onEnter={(id) => {
+            setActive(id);
+            // Ignore the synthetic hover browsers fire when the page scrolls itself on load.
+            if (Date.now() - openedAt.current > 1500) setExplored(true);
+          }}
           onLeave={() => setActive(null)}
           onOpen={(id) => nav(SPOTS[id].to)}
           onLionContext={lion.onContextMenu}
@@ -53,11 +60,11 @@ export default function Room() {
           </span>
         )}
       </div>
-      <span className="room-sign" aria-hidden="true">Neor</span>
+      <span className="room-sign" aria-hidden="true"><span>Neor</span></span>
       {lion.menu}
-      <p className="room-hint">
-        <span className="for-mouse">Everything in here opens. Hover around.</span>
-        <span className="for-touch">Swipe to look around. Tap anything.</span>
+      <p className={`room-hint ${explored ? "is-quiet" : ""}`}>
+        <span className="for-mouse">Hover over anything in the room. It all opens.</span>
+        <span className="for-touch">Tap anything in the room. Swipe to look around.</span>
       </p>
     </main>
   );

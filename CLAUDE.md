@@ -54,5 +54,5 @@ If you need a function from the other lane's file, call it if it exists. If it d
 
 - Base branch: `backend-dev`. Work on your lane branch (`be/ai` or `be/core`), created from `backend-dev`.
 - Commit at the end of each milestone, push the branch, and keep one PR open into `backend-dev`. PRs are audited, so keep them readable.
-- Never push to `main`, never force-push, and never rewrite the other lane's commits. Before your final push, run `git pull --rebase origin backend-dev`.
+- Never push to `main`, never force-push, and never rewrite the other lane's commits. Before your final push, run `git fetch origin && git merge origin/backend-dev` (merge, not rebase: your branch is already pushed and we never force-push).
 - Commit messages: `ai: …` or `core: …`, in the imperative mood.

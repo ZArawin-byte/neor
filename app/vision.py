@@ -34,40 +34,90 @@ def _norm_fiber(name: str) -> str:
     return found[0] if found else low
 
 
+WASH_WORDS = {"cold": 30, "cool": 30, "warm": 40, "hot": 60}
+NO = r"(?:do not|don't|dont|no)"
+# "do not iron ON DECORATION" only limits where you iron; it doesn't forbid ironing.
+PARTIAL = r"(?!\s+(?:on|over|directly|the print|decoration))"
+
+
 def parse_label(text: str) -> tuple[list[dict], dict]:
-    """Regex pass: '80% WOOL 20% NYLON' -> fibres, plus the common care phrases."""
+    """Regex pass: '80% WOOL 20% NYLON' -> fibres, plus the common English care phrases."""
     fibers, seen = [], set()
     for pct, name in FIBER_RE.findall(text or ""):
         fiber = _norm_fiber(name)
         if fiber and fiber not in seen:
             seen.add(fiber)
             fibers.append({"fiber": fiber, "percent": float(pct.replace(",", "."))})
-    low = (text or "").lower()
+    low = re.sub(r"\s+", " ", (text or "").lower())
     care: dict = {k: None for k in CareSymbols.model_fields}
     m = TEMP_RE.search(low)
+    word = re.search(r"wash\w*\s+(?:in\s+)?(cold|cool|warm|hot)", low)
     if m and ("wash" in low or "°" in low):
         care["wash_temp_c"] = int(m.group(1) or m.group(2))
-    if "hand wash" in low or "do not machine wash" in low:
+    elif word:
+        care["wash_temp_c"] = WASH_WORDS[word.group(1)]
+    if "hand wash" in low or re.search(NO + r" machine wash", low):
         care["machine_wash"] = False
-    elif "machine wash" in low:
+    elif "machine wash" in low or "machine washable" in low:
         care["machine_wash"] = True
-    if re.search(r"(do not|don't|no) bleach", low):
+    if re.search(NO + r" bleach", low):
         care["bleach"] = False
     elif "bleach" in low:
-        care["bleach"] = True
-    if re.search(r"(do not|don't|no) tumble", low):
+        care["bleach"] = True  # often "non-chlorine only"; label_phrases keeps that detail
+    if re.search(NO + r" tumble", low):
         care["tumble_dry"] = False
     elif "tumble dry" in low:
         care["tumble_dry"] = True
-    if re.search(r"(do not|don't|no) iron", low):
+    if re.search(NO + r" iron" + PARTIAL, low):
         care["iron"] = False
-    elif "iron" in low:
+    elif re.search(r"\biron", low):
         care["iron"] = True
-    if re.search(r"(do not|don't|no) dry.?clean", low):
+    if re.search(NO + r" dry.?clean", low):
         care["dry_clean"] = False
     elif re.search(r"dry.?clean", low):
         care["dry_clean"] = True
     return fibers, care
+
+
+def label_phrases(text: str) -> list[str]:
+    """The label's own instructions as plain steps, keeping qualifiers like 'low' or 'non-chlorine'."""
+    low = re.sub(r"\s+", " ", (text or "").lower())
+    _, care = parse_label(text)
+    steps = []
+    temp = care["wash_temp_c"]
+    if care["machine_wash"] is False:
+        steps.append("Hand wash only" + (f", {temp}°C or below" if temp else "") + ".")
+    elif care["machine_wash"]:
+        cold = re.search(r"wash\w*\s+(?:in\s+)?(cold|cool|warm|hot)", low)
+        steps.append(f"Machine wash {cold.group(1)}." if cold else f"Machine wash at {temp}°C or below." if temp
+                     else "Machine washable.")
+    elif temp:
+        steps.append(f"Wash at {temp}°C or below.")
+    if "like colo" in low or "similar colo" in low:
+        steps.append("Wash with similar colours.")
+    if care["bleach"] is False:
+        steps.append("Do not bleach.")
+    elif "non-chlorine" in low or "non chlorine" in low:
+        steps.append("Only non-chlorine bleach, and only when needed.")
+    if care["tumble_dry"] is False:
+        steps.append("Do not tumble dry.")
+    elif care["tumble_dry"]:
+        steps.append("Tumble dry low." if re.search(r"tumble dry (low|cool|gentle)", low) else "Tumble dry.")
+    for phrase, step in (("line dry", "Line dry."), ("dry flat", "Dry flat."), ("drip dry", "Drip dry.")):
+        if phrase in low:
+            steps.append(step)
+    if care["iron"] is False:
+        steps.append("Do not iron.")
+    elif care["iron"]:
+        level = re.search(r"(cool|low|warm|medium|hot) iron|iron (?:on )?(low|medium|high)", low)
+        steps.append(f"{(level.group(1) or level.group(2)).capitalize()} iron if needed." if level else "Iron if needed.")
+    if re.search(NO + r" iron (?:on|over) (?:the )?(decoration|print|embellishment|transfer)", low):
+        steps.append("Don't iron over the decoration or print.")
+    if care["dry_clean"] is False:
+        steps.append("Do not dry clean.")
+    elif care["dry_clean"]:
+        steps.append("Dry clean only." if "dry clean only" in low else "Dry cleaning is fine.")
+    return [f"{s[:-1]} (label)." for s in steps]
 
 
 def _ocr_perceptron(image: bytes) -> str:
@@ -154,7 +204,8 @@ def read_label(image: bytes, mime: str, profile: dict) -> dict:
 def _result(text: str, fibers: list[dict], care: dict, engine: str, fallback_reason: str | None = None) -> dict:
     care = {k: care.get(k) for k in CareSymbols.model_fields}
     names = [f["fiber"] for f in fibers]
-    steps = list(dict.fromkeys(label_steps(care) + care_kb.care_steps(names)))[:8]
+    own = label_phrases(text) or label_steps(care)
+    steps = list(dict.fromkeys(own + care_kb.care_steps(names)))[:8]
     out = CareLabelResult(text=text[:1000], fiber_composition=[FiberPart(**f) for f in fibers][:10],
                           care=CareSymbols(**care), care_steps=steps, ai=engine)
     data = out.model_dump()

@@ -126,3 +126,59 @@ def parse_product_page(page: str, base_url: str) -> dict:
         "image_url": urljoin(base_url, image) if image else None,
         "structured": bool(ld),
     }
+
+
+# ---------------------------------------------------------------- blocked shops
+
+BLOCKED_TITLE = re.compile(r"^\s*(error|access denied|attention required|just a moment|robot|captcha|forbidden)\b", re.I)
+
+
+def looks_blocked(page: str) -> bool:
+    """Bot walls answer 200 with an error page (Abercrombie, Cloudflare...). Their <title> gives it away."""
+    m = re.search(r"<title[^>]*>(.*?)</title>", page[:200_000], flags=re.I | re.S)
+    return bool(m and BLOCKED_TITLE.search(htmllib.unescape(m.group(1))))
+
+
+def name_from_url(url: str) -> tuple[str, str]:
+    """('abercrombie', 'classic essential tee') from https://www.abercrombie.com/shop/us/p/classic-essential-tee-62524325"""
+    p = urlparse(url)
+    host = (p.hostname or "").removeprefix("www.").split(".")
+    brand = host[-2] if len(host) >= 2 else host[0]
+    words = []
+    for seg in reversed([s for s in p.path.split("/") if s]):
+        bits = [w for w in re.split(r"[-_+]+", seg.lower()) if w.isalpha() and len(w) > 1]
+        if len(bits) >= 2:
+            words = bits
+            break
+    return brand, " ".join(words)
+
+
+async def photo_by_name(http: httpx.AsyncClient, url: str, serpapi_key: str, limit: int):
+    """When a shop blocks us, find the same product's photo through Google Images (SerpAPI, a search API, not
+    scraping) and download it from the shop's own image server. Returns (response, body, facts) or None."""
+    brand, product = name_from_url(url)
+    if not serpapi_key or not product:
+        return None
+    try:
+        res = await http.get("https://serpapi.com/search.json",
+                              params={"engine": "google_images", "q": f"{brand} {product}", "api_key": serpapi_key})
+        results = res.json().get("images_results", []) if res.status_code == 200 else []
+    except (httpx.HTTPError, ValueError):
+        return None
+
+    def rank(r):  # the shop's own images first, flat product shots ("prod") before model shots
+        src = (r.get("original", "") + " " + r.get("source", "")).lower()
+        return (brand not in src, "prod" not in src, "model" in src)
+    for r in sorted(results[:20], key=rank)[:4]:
+        original = r.get("original") or ""
+        if not original.startswith("https://") or brand not in (original + r.get("source", "")).lower():
+            continue
+        try:
+            img, body, _ = await fetch(http, original, limit)
+        except (httpx.HTTPError, HTTPException):
+            continue
+        if img.status_code == 200 and img.headers.get("content-type", "").startswith("image/"):
+            title = re.sub(r"\s+", " ", (r.get("title") or "")).strip() or product.title()
+            return img, body, {"title": product.title(), "brand": brand.title(), "found_by": "image search",
+                               "image_title": title[:120]}
+    return None

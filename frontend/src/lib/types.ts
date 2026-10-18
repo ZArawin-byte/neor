@@ -7,6 +7,7 @@ export interface Item {
   category: string; // backend's coarse category: top | bottom | dress | outerwear | shoes | bag | accessory | scent
   rack?: RackId; // the fine-grained rack the user sees
   laundry?: boolean; // in the basket: still owned, but AI skips it
+  rotation?: number; // degrees the photo is turned, so a sideways shot hangs upright
   color?: string;
   hex?: string;
   material?: string;
@@ -53,6 +54,7 @@ export interface PieceSnapshot {
   image_url?: string | null;
   price?: number;
   brand?: string;
+  rotation?: number;
 }
 
 export interface BoardPiece {

@@ -18,11 +18,13 @@ interface Props {
   size?: number;
   tilt?: boolean;
   dim?: boolean;
+  /** degrees to turn the picture itself (the item's saved rotation) */
+  turn?: number;
   className?: string;
 }
 
 /** A die-cut sticker: the cut-out photo (or a drawn silhouette) with a white border and a soft drop shadow. */
-export function Sticker({ id, name, hex, rack, image, size = 120, tilt = true, dim, className = "" }: Props) {
+export function Sticker({ id, name, hex, rack, image, size = 120, tilt = true, dim, className = "", turn }: Props) {
   const src = assetUrl(image);
   return (
     <div
@@ -31,7 +33,7 @@ export function Sticker({ id, name, hex, rack, image, size = 120, tilt = true, d
       title={name}
     >
       {src ? (
-        <img src={src} alt={name} draggable={false} loading="lazy" />
+        <img src={src} alt={name} draggable={false} loading="lazy" style={turn ? { rotate: `${turn}deg` } : undefined} />
       ) : (
         <Silhouette shape={RACK_BY_ID[rack].shape} hex={hex} />
       )}

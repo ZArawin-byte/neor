@@ -14,19 +14,31 @@ export type DragData =
   | { kind: "placed"; key: string }; // already on the table, being moved
 
 export const toSnap = (p: Piece): BoardPiece["snap"] => ({
-  name: p.name, hex: p.hex, rack: p.rack, image_url: p.image_url, price: p.price, brand: p.brand,
+  name: p.name, hex: p.hex, rack: p.rack, image_url: p.image_url, price: p.price, brand: p.brand, rotation: p.rotation,
 });
 
 // ---------------------------------------------------------------- draggable sticker
 
-export function DraggablePiece({ id, piece, size = 110, dim, caption }: {
+export function DraggablePiece({ id, piece, size = 110, dim, caption, onTurn, onDelete }: {
   id: string; piece: Piece; size?: number; dim?: boolean; caption?: string;
+  /** shows turn buttons on hover; called with -90 or +90 */
+  onTurn?: (by: number) => void;
+  /** shows a bin button on hover */
+  onDelete?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id, data: { kind: "piece", piece } satisfies DragData });
   return (
     <div ref={setNodeRef} {...listeners} {...attributes} className={`dragpiece ${isDragging ? "is-lifted" : ""}`}>
-      <Sticker id={piece.id} name={piece.name} hex={piece.hex} rack={piece.rack} image={piece.image_url} size={size} dim={dim} />
+      <Sticker id={piece.id} name={piece.name} hex={piece.hex} rack={piece.rack} image={piece.image_url} size={size} dim={dim} turn={piece.rotation} />
       <span className="dragpiece-name">{caption ?? piece.name}</span>
+      {(onTurn || onDelete) && (
+        // pointer-down is stopped so pressing these never starts a drag
+        <span className="turn-btns on-piece" onPointerDown={(e) => e.stopPropagation()}>
+          {onTurn && <button className="icon-btn" title="Turn left" aria-label={`Turn ${piece.name} left`} onClick={() => onTurn(-90)}>↺</button>}
+          {onTurn && <button className="icon-btn" title="Turn right" aria-label={`Turn ${piece.name} right`} onClick={() => onTurn(90)}>↻</button>}
+          {onDelete && <button className="icon-btn is-danger" title="Remove from closet" aria-label={`Remove ${piece.name} from your closet`} onClick={onDelete}><Icon name="trash" size={15} /></button>}
+        </span>
+      )}
     </div>
   );
 }
@@ -47,7 +59,7 @@ function PlacedPiece({ p, onRemove }: { p: BoardPiece; onRemove: () => void }) {
       }}
     >
       <div {...listeners} {...attributes}>
-        <Sticker id={p.key} name={p.snap.name} hex={p.snap.hex} rack={p.snap.rack} image={p.snap.image_url} size={118} tilt={false} />
+        <Sticker id={p.key} name={p.snap.name} hex={p.snap.hex} rack={p.snap.rack} image={p.snap.image_url} size={118} tilt={false} turn={p.snap.rotation} />
       </div>
       {p.source === "market" && <span className="price-tag">${p.snap.price}</span>}
       <button className="placed-x" onClick={onRemove} aria-label={`Take ${p.snap.name} off the table`}><Icon name="x" size={12} /></button>

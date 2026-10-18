@@ -27,6 +27,8 @@
   .phase-orient .hall-scene,
   .phase-open .hall-scene,
   .phase-enter .hall-scene { translate: 12.2vw 0; }
+  /* ...and the rug follows the doors to where the turned wall puts them (37.8vw on a 260vw floor) */
+  .phase-orient, .phase-open, .phase-enter { --door-x: 53%; }
 }
 
 /* ---------------------------------------------------------------- wall */
@@ -297,6 +299,7 @@
     #7d4f2b;
   background-size: auto, 72px 36px, auto;
 }
+.runner, .pool { transition: left 0.7s cubic-bezier(0.3, 0.7, 0.2, 1), opacity 0.8s, transform 1.2s; }
 .runner {
   position: absolute;
   left: var(--door-x);

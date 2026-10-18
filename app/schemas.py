@@ -89,6 +89,7 @@ class ItemPatch(_Loose):
     care_label: Note | None = None
     fibers: Annotated[list[dict], Field(max_length=10)] | None = None
     notes: Note | None = None
+    rotation: Annotated[int, Field(ge=-360, le=360)] | None = None  # how the photo is turned, in degrees
 
     @field_validator("hex", mode="before")
     @classmethod

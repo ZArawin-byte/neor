@@ -13,18 +13,45 @@ type Step =
   | { kind: "confirm"; blob: Blob; preview: string; meta: Partial<Item>; suggested: RackId; chosen: RackId; choosing: boolean };
 
 /**
- * Adding a piece: photo -> background removed in-browser -> backend tags it ->
+ * Adding pieces: photos -> background removed in-browser -> backend tags each one ->
  * "This goes on the Sweaters rack" -> user agrees or picks another rack -> saved.
+ * Several photos at once go through one after another ("Photo 2 of 5").
  */
+const ANALYZE_TIMEOUT = 25_000; // never leave someone staring at a spinner
+
+const withTimeout = <T,>(p: Promise<T>, ms: number) =>
+  Promise.race([p, new Promise<never>((_, bad) => setTimeout(() => bad(new Error("timeout")), ms))]);
 export function UploadSheet({ open, onClose, onAdded }: { open: boolean; onClose: () => void; onAdded: (item: Item) => void }) {
   const { offline, add } = useCloset();
   const [step, setStep] = useState<Step>({ kind: "pick" });
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
   const [link, setLink] = useState("");
+  const [queue, setQueue] = useState<File[]>([]); // photos still to go after this one
+  const [batch, setBatch] = useState({ done: 0, total: 0 });
   const input = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { if (!open) { setStep({ kind: "pick" }); setError(""); } }, [open]);
+  useEffect(() => { if (!open) { setStep({ kind: "pick" }); setError(""); setQueue([]); setBatch({ done: 0, total: 0 }); } }, [open]);
+
+  /** Start a batch: the first photo now, the rest queued. */
+  function handleFiles(list: FileList | File[]) {
+    const files = [...list].filter((f) => /^image\/(jpeg|png|webp)$/.test(f.type));
+    if (!files.length) return setError("Those need to be JPG, PNG or WebP photos.");
+    const skipped = list.length - files.length;
+    setBatch({ done: 0, total: files.length });
+    setQueue(files.slice(1));
+    handle(files[0]);
+    if (skipped) setError(`Skipped ${skipped} file${skipped > 1 ? "s" : ""} that weren't photos.`);
+  }
+
+  /** After saving or skipping one, move on to the next photo, or back to the start when done. */
+  function next() {
+    setBatch((b) => ({ ...b, done: b.done + 1 }));
+    const [first, ...rest] = queue;
+    setQueue(rest);
+    if (first) handle(first);
+    else setStep({ kind: "pick" });
+  }
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -63,10 +90,10 @@ export function UploadSheet({ open, onClose, onAdded }: { open: boolean; onClose
     let meta: Partial<Item> = { name: file.name.replace(/\.\w+$/, "").replace(/[-_]/g, " ") };
     if (!offline) {
       try {
-        const tags = await api.analyze(blob);
+        const tags = await withTimeout(api.analyze(blob), ANALYZE_TIMEOUT);
         meta = { ...tags };
         delete (meta as { ai?: string }).ai;
-      } catch { /* tagger down: user picks the rack themselves */ }
+      } catch { /* tagger down or too slow: user picks the rack themselves */ }
     }
     meta = { ...meta, ...preset }; // the shop's own title beats the AI's guess
     if (!meta.hex || meta.hex === "#b9a68a") meta.hex = await dominantHex(blob);
@@ -85,7 +112,7 @@ export function UploadSheet({ open, onClose, onAdded }: { open: boolean; onClose
         : await api.addItem(meta, step.blob);
       add(item);
       onAdded(item);
-      setStep({ kind: "pick" });
+      next();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't save that one. Try again?");
       setStep(step);
@@ -98,7 +125,10 @@ export function UploadSheet({ open, onClose, onAdded }: { open: boolean; onClose
     <div className="sheet-scrim" onClick={onClose}>
       <aside className="sheet" onClick={(e) => e.stopPropagation()} aria-label="Add a piece to your closet">
         <header className="sheet-head">
-          <h2>Add a piece</h2>
+          <div>
+            <h2>{batch.total > 1 ? "Add pieces" : "Add a piece"}</h2>
+            {batch.total > 1 && step.kind !== "pick" && <p className="batch-count">Photo {Math.min(batch.done + 1, batch.total)} of {batch.total}</p>}
+          </div>
           <button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="x" /></button>
         </header>
 
@@ -107,13 +137,13 @@ export function UploadSheet({ open, onClose, onAdded }: { open: boolean; onClose
             className={`dropzone ${dragging ? "is-over" : ""}`}
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
-            onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) handle(f); }}
+            onDrop={(e) => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); }}
           >
-            <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handle(f); e.target.value = ""; }} />
+            <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden
+              onChange={(e) => { if (e.target.files?.length) handleFiles(e.target.files); e.target.value = ""; }} />
             <Icon name="upload" size={28} />
-            <strong>Drop a photo, or tap to take one</strong>
-            <span>Lay it flat or hang it up against a plain wall. One piece per photo works best.</span>
+            <strong>Drop photos, or tap to choose</strong>
+            <span>Pick as many as you like and we'll go through them one by one. Lay each piece flat or hang it against a plain wall, one piece per photo.</span>
           </label>
         )}
 
@@ -140,7 +170,11 @@ export function UploadSheet({ open, onClose, onAdded }: { open: boolean; onClose
         {step.kind === "confirm" && (
           <div className="confirm">
             <div className="confirm-preview">
-              <Sticker id="preview" name={step.meta.name ?? ""} hex={step.meta.hex ?? "#999"} rack={step.chosen} image={step.preview} size={200} />
+              <Sticker id="preview" name={step.meta.name ?? ""} hex={step.meta.hex ?? "#999"} rack={step.chosen} image={step.preview} size={200} tilt={false} turn={step.meta.rotation} />
+              <div className="turn-btns" role="group" aria-label="Turn the photo">
+                <button className="icon-btn" title="Turn left" onClick={() => setStep({ ...step, meta: { ...step.meta, rotation: ((step.meta.rotation ?? 0) + 270) % 360 } })}>↺</button>
+                <button className="icon-btn" title="Turn right" onClick={() => setStep({ ...step, meta: { ...step.meta, rotation: ((step.meta.rotation ?? 0) + 90) % 360 } })}>↻</button>
+              </div>
             </div>
             <input
               className="name-input"
@@ -157,6 +191,7 @@ export function UploadSheet({ open, onClose, onAdded }: { open: boolean; onClose
                 <div className="row">
                   <button className="btn" onClick={save}><Icon name="check" /> Okay</button>
                   <button className="btn ghost" onClick={() => setStep({ ...step, choosing: true })}>No, somewhere else</button>
+                  {batch.total > 1 && <button className="btn ghost" onClick={next}>Skip this one</button>}
                 </div>
               </>
             ) : (

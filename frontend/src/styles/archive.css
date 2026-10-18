@@ -1,54 +1,241 @@
-.looks {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 22px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-.look-card {
-  display: grid;
-  gap: 10px;
-  padding: 12px 12px 14px;
-  background: #fffaf2;
-  border-radius: 4px;
-  box-shadow: 0 1px 2px rgba(60, 35, 10, 0.15), 0 14px 30px -18px rgba(60, 35, 10, 0.5);
-}
-.look-card:nth-child(3n + 1) { rotate: -0.6deg; }
-.look-card:nth-child(3n + 2) { rotate: 0.5deg; }
+/*
+ * The archive: a cork bulletin board in a wooden frame, with every saved outfit pinned up
+ * as a fashion sketch on paper.
+ */
 
-.look-visual {
+.board-filter select {
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 14px;
+  background: #fffaf2;
+}
+
+.board-wrap {
   position: relative;
-  aspect-ratio: 4 / 5;
-  overflow: hidden;
-  border-radius: 2px;
-  background: var(--linen) var(--grain);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
 }
-.look-photo { width: 100%; height: 100%; object-fit: cover; }
-.look-stickers {
+
+.board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
+  gap: clamp(18px, 2.4vw, 34px);
+  min-height: 520px;
+  padding: clamp(22px, 3vw, 40px);
+  border-radius: 6px;
+  /* cork: warm brown, flecked, a little lighter in the middle */
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(255, 220, 160, 0.18), transparent 70%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='c'><feTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' seed='4'/><feColorMatrix values='0 0 0 0 .32  0 0 0 0 .2  0 0 0 0 .09  0 0 0 1.4 -.55'/></filter><rect width='100%' height='100%' filter='url(%23c)'/></svg>"),
+    #b8875a;
+  /* the frame */
+  box-shadow:
+    0 0 0 14px #6e4426,
+    0 0 0 15px #3b2414,
+    inset 0 0 0 1px rgba(0, 0, 0, 0.35),
+    inset 0 8px 18px rgba(0, 0, 0, 0.35),
+    0 30px 50px -18px rgba(40, 20, 0, 0.6);
+  margin: 15px;
+}
+
+/* ---------------------------------------------------------------- a sheet of paper, pinned */
+
+.pinned {
+  position: relative;
+  display: grid;
+  align-content: start;
+  padding: 18px 14px 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.55), transparent 30%),
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(120, 95, 60, 0.035) 3px 4px),
+    #fbf7ee;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.15), 0 10px 16px -8px rgba(40, 20, 0, 0.55), 2px 3px 0 rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: rotate 0.25s, translate 0.25s, box-shadow 0.25s;
+  animation: pin-up 0.35s ease-out both;
+}
+.pinned:hover, .pinned:focus-visible { rotate: 0deg !important; translate: 0 -4px; box-shadow: 0 1px 1px rgba(0, 0, 0, 0.15), 0 22px 26px -12px rgba(40, 20, 0, 0.6); outline: none; }
+@keyframes pin-up { from { opacity: 0; translate: 0 -10px; } }
+
+.pushpin {
   position: absolute;
-  inset: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-content: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 16px;
+  z-index: 2;
+  top: -6px;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  border-radius: 50%;
+  box-shadow: inset -2px -3px 3px rgba(0, 0, 0, 0.35), inset 2px 2px 3px rgba(255, 255, 255, 0.45), 2px 4px 4px rgba(0, 0, 0, 0.35);
 }
-.look-photo + .look-stickers {
-  inset: auto 8px 8px auto;
-  flex-direction: column;
-  padding: 6px;
-  border-radius: 8px;
-  background: rgba(255, 250, 242, 0.85);
+.pushpin::after { content: ""; position: absolute; left: 4px; top: 3px; width: 4px; height: 4px; border-radius: 50%; background: rgba(255, 255, 255, 0.7); }
+.tape {
+  position: absolute;
+  z-index: 2;
+  top: -10px;
+  left: 50%;
+  width: 74px;
+  height: 22px;
+  margin-left: -37px;
+  rotate: -4deg;
+  background: repeating-linear-gradient(90deg, rgba(232, 196, 120, 0.75) 0 6px, rgba(242, 214, 150, 0.75) 6px 12px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  clip-path: polygon(3% 0, 97% 4%, 100% 50%, 96% 100%, 4% 96%, 0 50%);
 }
-.look-meta { display: flex; justify-content: space-between; align-items: start; gap: 8px; }
-.look-meta h3 { font: 400 19px/1.15 var(--display); margin: 0; }
-.look-meta .facts { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
-.fav.is-on { color: var(--brass); }
-.verdict-line { margin: 0; font-size: 13.5px; color: var(--ink-2); }
-.del { justify-self: start; font-size: 12.5px; }
-/* Same shape as the mirror glass, so try-on positions line up. */
-.look-visual.has-tryon { aspect-ratio: 9 / 20; }
-.look-visual.has-tryon .look-stickers { display: none; }
-.look-visual .worn { position: absolute; filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.35)); }
-.look-visual .worn img, .look-visual .worn svg { display: block; width: 100%; height: auto; }
+
+.sketch { display: block; width: 100%; aspect-ratio: 2 / 3; }
+.pinned-foot { display: grid; gap: 2px; padding-top: 4px; border-top: 1px solid rgba(60, 40, 20, 0.12); }
+.pinned-foot h3 { margin: 0; font: italic 400 17px/1.2 var(--display); color: #2f2a25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pinned-foot p { margin: 0; font-size: 12px; color: var(--muted); }
+
+.stars { display: inline-flex; gap: 1px; }
+.star {
+  padding: 0 1px;
+  border: 0;
+  background: none;
+  color: #d8cdb8;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s, transform 0.15s;
+}
+.star:disabled { cursor: default; }
+.star.is-on { color: #c98a2e; }
+.stars:hover .star:not(:disabled) { color: #c98a2e; }
+.stars .star:not(:disabled):hover ~ .star { color: #d8cdb8; }
+.star:not(:disabled):hover { transform: scale(1.2); }
+
+.pinned.note { grid-column: 1 / -1; justify-self: center; align-self: center; max-width: 360px; cursor: default; padding: 28px 26px; }
+.note-text { margin: 0; font: italic 400 19px/1.5 var(--display); color: #2f2a25; text-align: center; }
+
+/* ---------------------------------------------------------------- arrows and page dots */
+
+.board-arrow {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f6dc98, #c9a050 55%, #8a6a2e);
+  color: #2e1c0a;
+  box-shadow: 0 6px 14px -4px rgba(60, 35, 10, 0.5);
+  cursor: pointer;
+  transition: transform 0.15s, opacity 0.2s;
+}
+.board-arrow:hover:not(:disabled) { transform: scale(1.08); }
+.board-arrow:disabled { opacity: 0.3; cursor: default; }
+.board-pages { display: flex; justify-content: center; gap: 8px; margin: 20px 0 0; }
+.board-pages button { width: 9px; height: 9px; padding: 0; border: 0; border-radius: 50%; background: #d8cdb8; cursor: pointer; }
+.board-pages button.is-on { background: var(--ink); }
+
+/* ---------------------------------------------------------------- one look, up close */
+
+.look-open {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  translate: -50% -50%;
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) minmax(0, 320px);
+  gap: 30px;
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  padding: 30px;
+  border-radius: 12px;
+  background: var(--paper) var(--grain);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
+  animation: fade 0.2s;
+}
+.look-close { position: absolute; right: 10px; top: 10px; }
+.pinned.big { cursor: default; rotate: -1deg; }
+.pinned.big:hover { translate: none; }
+.look-info { display: grid; gap: 8px; align-content: start; }
+.look-info .kicker { margin: 0; }
+.look-info h2 { margin: 0; font: 400 28px/1.15 var(--display); }
+.look-info h4 { margin: 12px 0 0; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--oak-deep); }
+.look-verdict { margin: 4px 0 0; font: italic 400 16px/1.5 var(--display); color: var(--ink-2); }
+.look-pieces-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14.5px; }
+.look-pieces-list li { display: flex; align-items: center; gap: 8px; }
+.look-pieces-list small { color: var(--muted); }
+.look-photo-thumb { width: 96px; aspect-ratio: 9 / 20; object-fit: cover; border-radius: 40px 40px 4px 4px; box-shadow: 0 0 0 4px #c49a64; margin: 8px 0; }
+.btn.danger { color: var(--danger); border-color: rgba(155, 58, 42, 0.3); }
+
+@media (max-width: 720px) {
+  .board-wrap { grid-template-columns: 1fr; }
+  .board-arrow { position: absolute; z-index: 3; top: 50%; translate: 0 -50%; width: 40px; height: 40px; }
+  .board-arrow.left { left: -6px; }
+  .board-arrow.right { right: -6px; }
+  .board { margin: 12px 6px; min-height: 380px; box-shadow: 0 0 0 10px #6e4426, 0 0 0 11px #3b2414, inset 0 8px 18px rgba(0, 0, 0, 0.35), 0 24px 40px -18px rgba(40, 20, 0, 0.6); }
+  .look-open { grid-template-columns: 1fr; padding: 22px; }
+  .pinned.big { max-width: 260px; justify-self: center; }
+}
+
+/* ---------------------------------------------------------------- odds and ends on the cork */
+
+.trim { position: absolute; z-index: 0; pointer-events: none; }
+.board > .pinned { z-index: 1; }
+.measure {
+  left: -14px;
+  bottom: 54px;
+  width: 300px;
+  height: 26px;
+  rotate: 14deg;
+  background:
+    repeating-linear-gradient(90deg, rgba(47, 42, 37, 0.85) 0 1px, transparent 1px 12px) top / 100% 9px no-repeat,
+    repeating-linear-gradient(90deg, rgba(47, 42, 37, 0.85) 0 1px, transparent 1px 60px) top / 100% 15px no-repeat,
+    #e9c84a;
+  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.3);
+}
+.fabric {
+  width: 92px;
+  height: 78px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  /* pinking-shear edges */
+  clip-path: polygon(0 4%, 5% 0, 10% 4%, 15% 0, 20% 4%, 25% 0, 30% 4%, 35% 0, 40% 4%, 45% 0, 50% 4%, 55% 0, 60% 4%, 65% 0, 70% 4%, 75% 0, 80% 4%, 85% 0, 90% 4%, 95% 0, 100% 4%, 100% 96%, 95% 100%, 90% 96%, 85% 100%, 80% 96%, 75% 100%, 70% 96%, 65% 100%, 60% 96%, 55% 100%, 50% 96%, 45% 100%, 40% 96%, 35% 100%, 30% 96%, 25% 100%, 20% 96%, 15% 100%, 10% 96%, 5% 100%, 0 96%);
+}
+.gingham {
+  top: 10px;
+  left: 18%;
+  rotate: -9deg;
+  background:
+    repeating-linear-gradient(90deg, rgba(184, 55, 46, 0.55) 0 8px, transparent 8px 16px),
+    repeating-linear-gradient(0deg, rgba(184, 55, 46, 0.55) 0 8px, transparent 8px 16px),
+    #f3e6cc;
+}
+.stripe {
+  right: 4%;
+  bottom: 14px;
+  rotate: 11deg;
+  background: repeating-linear-gradient(115deg, #2f6b6a 0 7px, #e8dcc6 7px 14px, #c98a2e 14px 17px, #e8dcc6 17px 24px);
+}
+.floral {
+  top: 44%;
+  right: -10px;
+  width: 70px;
+  rotate: 24deg;
+  background:
+    radial-gradient(circle at 30% 30%, #e9b7bd 0 5px, transparent 6px) 0 0 / 24px 24px,
+    radial-gradient(circle at 70% 70%, #9caf88 0 3px, transparent 4px) 0 0 / 24px 24px,
+    #3b4a7a;
+}
+.notions { top: 16px; right: 22%; display: flex; gap: 6px; rotate: -6deg; }
+.notions i {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 38% 38%, rgba(0, 0, 0, 0.5) 0 1.6px, transparent 2px),
+    radial-gradient(circle at 62% 38%, rgba(0, 0, 0, 0.5) 0 1.6px, transparent 2px),
+    radial-gradient(circle at 38% 62%, rgba(0, 0, 0, 0.5) 0 1.6px, transparent 2px),
+    radial-gradient(circle at 62% 62%, rgba(0, 0, 0, 0.5) 0 1.6px, transparent 2px),
+    var(--b, #c49a64);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.15), 0 2px 3px rgba(0, 0, 0, 0.35);
+}
+.notions i:nth-child(2) { --b: #f3ede0; width: 18px; height: 18px; margin-top: 10px; }
+.notions i:nth-child(3) { --b: #7a1220; width: 16px; height: 16px; margin-top: 2px; }
+@media (max-width: 720px) { .measure { width: 200px; } .floral, .stripe { display: none; } }

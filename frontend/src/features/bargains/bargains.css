@@ -32,34 +32,3 @@
   background: radial-gradient(circle at 35% 30%, #ff9a8a, #b0281c 60%, #5a0f08);
   box-shadow: 0 2px 2px rgba(0, 0, 0, 0.4);
 }
-
-/* ---------------------------------------------------------------- the page */
-
-.bargains {
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 24px clamp(16px, 4vw, 32px) 64px;
-}
-.bargains-back { font-size: 14px; color: var(--muted); text-decoration: none; }
-.bargains-back:hover { color: var(--ink); }
-.bargains header { margin: 28px 0 22px; }
-.bargains h1 { font: 400 clamp(32px, 4vw, 42px)/1.05 var(--display); margin: 0 0 10px; }
-.bargains header p:last-child { margin: 0; font-size: 16px; color: var(--ink-2); max-width: 520px; }
-.bargains-search { display: flex; gap: 8px; }
-.bargains-search .text-input { flex: 1; height: 42px; font-size: 15px; }
-.bargains-search .btn { height: 42px; }
-
-.bargain-list { list-style: none; padding: 0; margin: 26px 0 0; display: grid; gap: 10px; }
-.bargain-list li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 18px;
-  border-radius: 10px;
-  background: #fffaf2;
-  box-shadow: inset 0 0 0 1px var(--line);
-}
-.bargain-list h2 { font: 400 19px var(--display); margin: 0; }
-.bargain-list p { margin: 4px 0 0; font-size: 14px; color: var(--ink-2); }
-.bargain-list .b-kind { margin: 0 0 2px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--oak-deep); }

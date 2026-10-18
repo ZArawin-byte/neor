@@ -1,14 +1,12 @@
 import base64
 import datetime as dt
 import html as htmllib
-import ipaddress
 import json
 import random
 import re
 import secrets
-import socket
 import time
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 
 import httpx
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
@@ -16,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ai, config, store
+from . import ai, config, lazy, net, souq, store
 from .seed import CATALOG, CATALOG_BY_ID, STARTER_CLOSET
 
 app = FastAPI(title="Neor API", description="Backend for Neor - step into your closet.")
@@ -144,29 +142,8 @@ class ImportReq(BaseModel):
     url: str
 
 
-def _is_public(url: str) -> bool:
-    """Only fetch public http(s) hosts, so a pasted link can't reach our own network."""
-    parts = urlparse(url)
-    if parts.scheme not in ("http", "https") or not parts.hostname:
-        return False
-    try:
-        addrs = {info[4][0] for info in socket.getaddrinfo(parts.hostname, None)}
-    except socket.gaierror:
-        return False
-    return all(ipaddress.ip_address(a.split("%")[0]).is_global for a in addrs)
-
-
-async def _fetch(http: httpx.AsyncClient, url: str) -> httpx.Response:
-    # Follow redirects by hand so every hop gets the same public-host check.
-    for _ in range(5):
-        if not _is_public(url):
-            raise HTTPException(400, "That link doesn't point to a public web page")
-        res = await http.get(url)
-        if res.is_redirect and "location" in res.headers:
-            url = urljoin(url, res.headers["location"])
-            continue
-        return res
-    raise HTTPException(400, "That link redirects too many times")
+# Pasted links are fetched through app/net.py, which refuses private and internal addresses.
+_is_public, _fetch = net.is_public, net.fetch_public
 
 
 def _meta(page: str, *keys: str) -> str | None:
@@ -421,3 +398,14 @@ def orders(uid: str = Depends(current_user)):
 def forget_me(uid: str = Depends(current_user)):
     store.delete_everything(uid)
     return {"ok": True}
+
+
+# ------------------------------------------------------------------ bargain market (souq)
+# Photo identification, offers, shops and the shared price ledger live in app/souq.py.
+app.include_router(souq.router(current_user, _read_image))
+
+
+# ------------------------------------------------------------------ lazy mode
+# Morning outfit texts from weather + calendar; the scheduler runs inside this process.
+app.include_router(lazy.router(current_user))
+lazy.start(app)
